@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:glassmorphism/glassmorphism.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pink_sleep/screens/sleep_preparation_screen.dart';
 import 'package:pink_sleep/screens/sleep_report_screen.dart';
 import 'package:pink_sleep/screens/dream_diary_screen.dart';
 import 'package:pink_sleep/screens/settings_screen.dart';
+import 'package:pink_sleep/screens/sleeping_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -20,29 +22,204 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                _buildTipCard(context),
-                const SizedBox(height: 20),
-                _buildSleepQualityCard(context),
-                const SizedBox(height: 20),
-                _buildQuickAccessGrid(context),
-              ],
-            ),
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text(
+                  '粉睡眠',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Image.asset(
+                          'assets/images/sleep_banner.png',
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        ),
+                      ).animate()
+                        .fadeIn(duration: 600.ms)
+                        .slideY(begin: -0.2, end: 0, duration: 600.ms, curve: Curves.easeOut),
+                      const SizedBox(height: 20),
+                      Text(
+                        '祝您睡个好觉！',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ).animate()
+                        .fadeIn(delay: 300.ms, duration: 600.ms)
+                        .slideX(begin: 0.2, end: 0),
+                      const SizedBox(height: 20),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildQuickAccessCard(
+                                    context,
+                                    '入睡准备',
+                                    '轻松入睡的必备步骤',
+                                    Icons.bed,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const SleepPreparationScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 15),
+                                Expanded(
+                                  child: _buildQuickAccessCard(
+                                    context,
+                                    '睡眠报告',
+                                    '查看睡眠统计数据',
+                                    Icons.bar_chart,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const SleepReportScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 15),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildQuickAccessCard(
+                                    context,
+                                    '梦境日记',
+                                    '记录和回顾您的梦境',
+                                    Icons.book,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const DreamDiaryScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 15),
+                                Expanded(
+                                  child: _buildQuickAccessCard(
+                                    context,
+                                    '设置',
+                                    '自定义您的睡眠体验',
+                                    Icons.settings,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const SettingsScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Column(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SleepingScreen(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.2),
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.2),
+                            blurRadius: 10,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                    ).animate(
+                      onPlay: (controller) => controller.repeat(reverse: true),
+                    ).scale(
+                      duration: 2.seconds,
+                      begin: const Offset(1, 1),
+                      end: const Offset(1.1, 1.1),
+                      curve: Curves.easeInOut,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    '开始睡眠',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTipCard(BuildContext context) {
+  Widget _buildQuickAccessCard(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon, {
+    required VoidCallback onTap,
+  }) {
     return GlassmorphicContainer(
       width: double.infinity,
-      height: 120,
+      height: 100,
       borderRadius: 20,
       blur: 20,
       alignment: Alignment.center,
@@ -63,186 +240,38 @@ class HomeScreen extends StatelessWidget {
           Colors.white.withOpacity(0.2),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '温馨提示',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(15),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.white, size: 30),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
                     color: Colors.white,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '今晚请避免使用手机，减少蓝光刺激',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
                     color: Colors.white.withOpacity(0.8),
+                    fontSize: 12,
                   ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSleepQualityCard(BuildContext context) {
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: 200,
-      borderRadius: 20,
-      blur: 20,
-      alignment: Alignment.center,
-      border: 2,
-      linearGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.1),
-          Colors.white.withOpacity(0.05),
-        ],
-      ),
-      borderGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.5),
-          Colors.white.withOpacity(0.2),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '睡眠质量',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 20),
-            LinearProgressIndicator(
-              value: 0.7,
-              backgroundColor: Colors.white.withOpacity(0.2),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '今天目标：7小时深睡，已完成3小时30分钟',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickAccessGrid(BuildContext context) {
-    final List<Map<String, dynamic>> quickAccess = [
-      {
-        'icon': Icons.nightlight_round,
-        'title': '入睡准备',
-        'onTap': () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const SleepPreparationScreen(),
-              ),
-            ),
-      },
-      {
-        'icon': Icons.bar_chart,
-        'title': '睡眠报告',
-        'onTap': () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const SleepReportScreen(),
-              ),
-            ),
-      },
-      {
-        'icon': Icons.book,
-        'title': '梦境日记',
-        'onTap': () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const DreamDiaryScreen(),
-              ),
-            ),
-      },
-      {
-        'icon': Icons.settings,
-        'title': '设置',
-        'onTap': () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const SettingsScreen(),
-              ),
-            ),
-      },
-    ];
-
-    return Expanded(
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 15,
-          mainAxisSpacing: 15,
-          childAspectRatio: 1.5,
-        ),
-        itemCount: quickAccess.length,
-        itemBuilder: (context, index) {
-          return GestureDetector(
-            onTap: quickAccess[index]['onTap'],
-            child: GlassmorphicContainer(
-              width: double.infinity,
-              height: double.infinity,
-              borderRadius: 20,
-              blur: 20,
-              alignment: Alignment.center,
-              border: 2,
-              linearGradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.1),
-                  Colors.white.withOpacity(0.05),
-                ],
-              ),
-              borderGradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.5),
-                  Colors.white.withOpacity(0.2),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    quickAccess[index]['icon'],
-                    color: Colors.white,
-                    size: 30,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    quickAccess[index]['title'],
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
       ),
     );
   }
