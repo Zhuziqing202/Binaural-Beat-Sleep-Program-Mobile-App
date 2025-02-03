@@ -77,6 +77,10 @@ flutter:
   assets:
     - assets/images/sleep_banner.png
     - assets/icons/
+    - assets/audio/pink_noise_falling_asleep.wav
+    - assets/audio/pink_noise_n1.wav
+    - assets/audio/pink_noise_n2.wav
+    - assets/audio/pink_noise_n3.wav
     - assets/audio/
 
   # An image asset can refer to one or more resolution-specific "variants", see

@@ -48,6 +48,7 @@ class _SleepingScreenState extends State<SleepingScreen> {
       setState(() {
         _startTime = DateTime.parse(startTimeStr);
       });
+      _audioService.setSleepStartTime(_startTime!);
     } else {
       _startSleeping();
     }
@@ -401,21 +402,118 @@ class _SleepingScreenState extends State<SleepingScreen> {
     final isSelected = _selectedMode == mode;
     return Material(
       color: Colors.transparent,
-      child: ListTile(
-        onTap: () {
-          setState(() => _selectedMode = mode);
-          Navigator.pop(context);
-        },
-        leading: Icon(
-          isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-          color: Colors.white,
-        ),
-        title: Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            onTap: () {
+              // 无论选择哪个模式，先停止当前播放
+              if (_audioService.isPlaying) {
+                _audioService.stopSound();
+              }
+              
+              setState(() {
+                _selectedMode = mode;
+                if (mode == 1) {
+                  // 预设睡眠周期模式
+                  _audioService.startPresetCycle();
+                  Navigator.pop(context);
+                } else if (mode == 0) {
+                  // 睡眠阶段同步模式 - 目前只停止播放
+                  Navigator.pop(context);
+                }
+                // 自定义模式(mode == 2)不关闭弹窗，只更新状态
+              });
+            },
+            leading: Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              color: Colors.white,
+            ),
+            title: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+              ),
+            ),
+            subtitle: mode == 1 ? Text(
+              '90分钟为一个周期，自动调整频率',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 12,
+              ),
+            ) : mode == 2 ? Text(
+              '选择单一音频循环播放',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 12,
+              ),
+            ) : null,
           ),
+          if (mode == 2)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildCustomModeButton('助眠', 'pink_noise_falling_asleep', Icons.nightlight),
+                  _buildCustomModeButton('N1', 'pink_noise_n1', Icons.waves),
+                  _buildCustomModeButton('N2', 'pink_noise_n2', Icons.waves_outlined),
+                  _buildCustomModeButton('N3', 'pink_noise_n3', Icons.water),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomModeButton(String label, String soundName, IconData icon) {
+    final isPlaying = _audioService.isCustomMode && 
+                     _audioService.isPlaying && 
+                     _audioService.currentSound == soundName;
+    
+    return GestureDetector(
+      onTap: () {
+        // 如果有任何音频在播放，先停止
+        if (_audioService.isPlaying) {
+          _audioService.stopSound();
+        }
+        // 开始播放新选择的音频（不使用淡入效果）
+        _audioService.startCustomMode(soundName, useInitialFade: false);
+        setState(() {
+          _selectedMode = 2; // 设置为自定义模式
+        });
+        // 播放开始后关闭弹窗
+        Navigator.pop(context);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isPlaying ? Colors.white.withOpacity(0.3) : Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: isPlaying ? Colors.white : Colors.white.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              isPlaying ? Icons.pause : icon,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: isPlaying ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -487,6 +585,7 @@ class _SleepingScreenState extends State<SleepingScreen> {
             inactiveColor: Colors.white.withOpacity(0.3),
             onChanged: (value) {
               setState(() => _volume = value);
+              _audioService.setVolume(value);
             },
           ),
         ],
