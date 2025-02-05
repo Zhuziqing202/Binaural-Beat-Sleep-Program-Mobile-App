@@ -1,47 +1,45 @@
 class DreamRecord {
-  final int? id;
+  final String id;
+  final DateTime date;
   final String title;
   final String content;
-  final String type;
-  final String mood;
-  final List<String> tags;
-  final DateTime recordTime;
-  final double sleepQuality;
+  final int mood; // 情绪值 -100 到 100
+  final int clarity; // 清晰度 1-5
 
   DreamRecord({
-    this.id,
+    required this.id,
+    required this.date,
     required this.title,
     required this.content,
-    required this.type,
     required this.mood,
-    required this.tags,
-    required this.recordTime,
-    required this.sleepQuality,
+    required this.clarity,
   });
 
-  Map<String, dynamic> toMap() {
+  factory DreamRecord.fromJson(Map<String, dynamic> json) {
+    return DreamRecord(
+      id: json['id'],
+      date: DateTime.parse(json['date']),
+      title: json['title'],
+      content: json['content'],
+      mood: json['mood'],
+      clarity: json['clarity'] is String ? int.parse(json['clarity']) : json['clarity'],
+    );
+  }
+
+  // 为数据库操作添加 fromMap 方法
+  factory DreamRecord.fromMap(Map<String, dynamic> map) => DreamRecord.fromJson(map);
+
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'date': date.toIso8601String(),
       'title': title,
       'content': content,
-      'type': type,
       'mood': mood,
-      'tags': tags.join(','),
-      'recordTime': recordTime.toIso8601String(),
-      'sleepQuality': sleepQuality,
+      'clarity': clarity,
     };
   }
 
-  factory DreamRecord.fromMap(Map<String, dynamic> map) {
-    return DreamRecord(
-      id: map['id'] as int?,
-      title: map['title'] as String,
-      content: map['content'] as String,
-      type: map['type'] as String,
-      mood: map['mood'] as String,
-      tags: (map['tags'] as String).split(','),
-      recordTime: DateTime.parse(map['recordTime'] as String),
-      sleepQuality: map['sleepQuality'] as double,
-    );
-  }
+  // 为数据库操作添加 toMap 方法
+  Map<String, dynamic> toMap() => toJson();
 } 

@@ -42,11 +42,38 @@ class HomeScreen extends StatelessWidget {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(20),
-                        child: Image.asset(
-                          'assets/images/sleep_banner.png',
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // 背景渐变
+                            Container(
+                              width: double.infinity,
+                              height: 160, // 调整容器高度
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.white.withOpacity(0.2),
+                                    Colors.white.withOpacity(0.1),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // 图片
+                            SizedBox(
+                              height: 160, // 调整容器高度
+                              child: Transform.scale(
+                                scale: 0.7,
+                                child: Image.asset(
+                                  'assets/images/sleep_banner.png',
+                                  fit: BoxFit.contain,
+                                  color: Colors.white.withOpacity(0.9),
+                                  colorBlendMode: BlendMode.modulate,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ).animate()
                         .fadeIn(duration: 600.ms)

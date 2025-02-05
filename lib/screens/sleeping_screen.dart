@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:glassmorphism/glassmorphism.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/audio_service.dart';
+import '../services/sleep_record_service.dart';
+import '../models/sleep_record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SleepingScreen extends StatefulWidget {
@@ -65,8 +67,26 @@ class _SleepingScreenState extends State<SleepingScreen> {
 
   Future<void> _endSleeping() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('sleep_start_time');
-    // TODO: 保存睡眠记录到数据库
+    final startTimeStr = prefs.getString('sleep_start_time');
+    if (startTimeStr != null) {
+      final startTime = DateTime.parse(startTimeStr);
+      final endTime = DateTime.now();
+      final duration = endTime.difference(startTime);
+      
+      // 创建并保存睡眠记录
+      final record = SleepRecord(
+        startTime: startTime,
+        endTime: endTime,
+        duration: duration,
+        date: SleepRecord.getDateString(startTime),
+      );
+      
+      await SleepRecordService.instance.saveSleepRecord(record);
+      await prefs.remove('sleep_start_time');
+    }
+    
+    // 停止音频播放
+    _audioService.stopSound();
     Navigator.pop(context);
   }
 

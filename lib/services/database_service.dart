@@ -28,38 +28,27 @@ class DatabaseService {
   Future<void> _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE dreams(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         content TEXT NOT NULL,
-        type TEXT NOT NULL,
-        mood TEXT NOT NULL,
-        tags TEXT NOT NULL,
-        recordTime TEXT NOT NULL,
-        sleepQuality REAL NOT NULL
+        mood INTEGER NOT NULL,
+        clarity INTEGER NOT NULL,
+        date TEXT NOT NULL
       )
     ''');
   }
 
   Future<DreamRecord> createDream(DreamRecord dream) async {
     final db = await instance.database;
-    final id = await db.insert('dreams', dream.toMap());
-    return dream.id == null ? DreamRecord(
-      id: id,
-      title: dream.title,
-      content: dream.content,
-      type: dream.type,
-      mood: dream.mood,
-      tags: dream.tags,
-      recordTime: dream.recordTime,
-      sleepQuality: dream.sleepQuality,
-    ) : dream;
+    await db.insert('dreams', dream.toMap());
+    return dream;
   }
 
-  Future<DreamRecord?> readDream(int id) async {
+  Future<DreamRecord?> readDream(String id) async {
     final db = await instance.database;
     final maps = await db.query(
       'dreams',
-      columns: ['id', 'title', 'content', 'type', 'mood', 'tags', 'recordTime', 'sleepQuality'],
+      columns: ['id', 'title', 'content', 'mood', 'clarity', 'date'],
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -72,18 +61,7 @@ class DatabaseService {
 
   Future<List<DreamRecord>> readAllDreams() async {
     final db = await instance.database;
-    final result = await db.query('dreams', orderBy: 'recordTime DESC');
-    return result.map((json) => DreamRecord.fromMap(json)).toList();
-  }
-
-  Future<List<DreamRecord>> readDreamsByType(String type) async {
-    final db = await instance.database;
-    final result = await db.query(
-      'dreams',
-      where: 'type = ?',
-      whereArgs: [type],
-      orderBy: 'recordTime DESC',
-    );
+    final result = await db.query('dreams', orderBy: 'date DESC');
     return result.map((json) => DreamRecord.fromMap(json)).toList();
   }
 
@@ -97,7 +75,7 @@ class DatabaseService {
     );
   }
 
-  Future<int> deleteDream(int id) async {
+  Future<int> deleteDream(String id) async {
     final db = await instance.database;
     return await db.delete(
       'dreams',

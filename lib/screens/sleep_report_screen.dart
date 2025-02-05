@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:glassmorphism/glassmorphism.dart';
+import '../services/sleep_record_service.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class SleepReportScreen extends StatefulWidget {
@@ -10,7 +11,34 @@ class SleepReportScreen extends StatefulWidget {
 }
 
 class _SleepReportScreenState extends State<SleepReportScreen> {
-  int _selectedPeriod = 7; // 默认显示7天数据
+  int _selectedPeriod = 7; // 默认显示7天
+  Map<String, Duration> _sleepData = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSleepData();
+  }
+
+  Future<void> _loadSleepData() async {
+    setState(() => _isLoading = true);
+    final data = await SleepRecordService.instance.getRecentRecords(
+      _selectedPeriod,
+      _selectedPeriod <= 31 ? 'day' : _selectedPeriod <= 365 ? 'month' : 'year'
+    );
+    setState(() {
+      _sleepData = data;
+      _isLoading = false;
+    });
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final decimalHours = hours + (minutes / 60);
+    return decimalHours.toStringAsFixed(2);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +62,7 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
                     children: [
                       _buildPeriodSelector(),
                       const SizedBox(height: 20),
-                      _buildSleepQualityChart(),
+                      _buildSleepDurationChart(),
                       const SizedBox(height: 20),
                       _buildSleepStagesCard(),
                       const SizedBox(height: 20),
@@ -114,19 +142,48 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
   Widget _buildPeriodButton(String text, int days) {
     final isSelected = _selectedPeriod == days;
     return TextButton(
-      onPressed: () => setState(() => _selectedPeriod = days),
+      onPressed: () {
+        setState(() => _selectedPeriod = days);
+        _loadSleepData();
+      },
+      style: TextButton.styleFrom(
+        backgroundColor: isSelected ? Colors.white.withOpacity(0.3) : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+      ),
       child: Text(
         text,
         style: TextStyle(
-          color: isSelected ? Colors.white : Colors.white60,
-          fontSize: 16,
+          color: Colors.white,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),
     );
   }
 
-  Widget _buildSleepQualityChart() {
+  Widget _buildSleepDurationChart() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Colors.white,
+        ),
+      );
+    }
+
+    String getXAxisLabel(String key) {
+      if (_selectedPeriod <= 31) {
+        // 日视图：显示"月-日"
+        return key.substring(5);
+      } else if (_selectedPeriod <= 365) {
+        // 月视图：显示"年-月"
+        return key.substring(0, 7);
+      } else {
+        // 年视图：显示年份
+        return key;
+      }
+    }
+
     return GlassmorphicContainer(
       width: double.infinity,
       height: 300,
@@ -156,7 +213,7 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '睡眠质量趋势',
+              '睡眠时长趋势',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -170,25 +227,45 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
                   gridData: FlGridData(show: false),
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            '${value.toStringAsFixed(1)}h',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    rightTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
                     ),
-                    rightTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: AxisTitles(
+                    topTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
                     ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
                         getTitlesWidget: (value, meta) {
-                          return Text(
-                            '${value.toInt()}日',
-                            style: const TextStyle(
-                              color: Colors.white60,
-                              fontSize: 12,
-                            ),
-                          );
+                          final index = value.toInt();
+                          if (index >= 0 && index < _sleepData.keys.length) {
+                            final key = _sleepData.keys.elementAt(index);
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                getXAxisLabel(key),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            );
+                          }
+                          return const Text('');
                         },
                       ),
                     ),
@@ -196,25 +273,36 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
                   borderData: FlBorderData(show: false),
                   lineBarsData: [
                     LineChartBarData(
-                      spots: [
-                        const FlSpot(0, 3),
-                        const FlSpot(1, 4),
-                        const FlSpot(2, 3.5),
-                        const FlSpot(3, 5),
-                        const FlSpot(4, 4),
-                        const FlSpot(5, 4.5),
-                        const FlSpot(6, 4.8),
-                      ],
+                      spots: _sleepData.entries.map((e) {
+                        final hours = e.value.inHours.toDouble() + (e.value.inMinutes % 60) / 60;
+                        return FlSpot(
+                          _sleepData.keys.toList().indexOf(e.key).toDouble(),
+                          double.parse(hours.toStringAsFixed(2)),
+                        );
+                      }).toList(),
                       isCurved: true,
                       color: Colors.white,
                       barWidth: 2,
-                      dotData: FlDotData(show: false),
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          return FlDotCirclePainter(
+                            radius: 4,
+                            color: Colors.white,
+                            strokeWidth: 2,
+                            strokeColor: Colors.white,
+                          );
+                        },
+                      ),
                       belowBarData: BarAreaData(
                         show: true,
                         color: Colors.white.withOpacity(0.1),
                       ),
                     ),
                   ],
+                  minY: 0,
+                  maxY: 12, // 最大12小时
                 ),
               ),
             ),
