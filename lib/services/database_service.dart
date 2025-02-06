@@ -88,4 +88,4 @@ class DatabaseService {
     final db = await instance.database;
     db.close();
   }
-} 
+}

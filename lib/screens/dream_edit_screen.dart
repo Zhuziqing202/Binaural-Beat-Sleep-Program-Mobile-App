@@ -18,6 +18,7 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
   final _contentController = TextEditingController();
   int _mood = 0; // -100 到 100
   int _clarity = 3;
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -27,6 +28,7 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
       _contentController.text = widget.record!.content;
       _mood = widget.record!.mood;
       _clarity = widget.record!.clarity;
+      _selectedDate = widget.record!.date;
     }
   }
 
@@ -47,7 +49,7 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
 
     final dream = DreamRecord(
       id: widget.record?.id ?? const Uuid().v4(),
-      date: DateTime.now(),
+      date: _selectedDate,
       title: _titleController.text,
       content: _contentController.text,
       mood: _mood,
@@ -162,6 +164,7 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -184,6 +187,8 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
                         _buildTitleInput(),
                         const SizedBox(height: 20),
                         _buildContentInput(),
+                        const SizedBox(height: 20),
+                        _buildDateSelector(),
                         const SizedBox(height: 20),
                         _buildMoodSelector(),
                         const SizedBox(height: 20),
@@ -332,6 +337,86 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDateSelector() {
+    return GlassmorphicContainer(
+      width: double.infinity,
+      height: 60,
+      borderRadius: 20,
+      blur: 20,
+      alignment: Alignment.center,
+      border: 2,
+      linearGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.1),
+          Colors.white.withOpacity(0.05),
+        ],
+      ),
+      borderGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.5),
+          Colors.white.withOpacity(0.2),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            final DateTime? picked = await showDatePicker(
+              context: context,
+              initialDate: _selectedDate,
+              firstDate: DateTime(2000),
+              lastDate: DateTime.now(),
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.light(
+                      primary: Color(0xFF6B8EFF),
+                      onPrimary: Colors.white,
+                      surface: Colors.white,
+                      onSurface: Colors.black,
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+            if (picked != null) {
+              setState(() {
+                _selectedDate = DateTime(
+                  picked.year,
+                  picked.month,
+                  picked.day,
+                  _selectedDate.hour,
+                  _selectedDate.minute,
+                );
+              });
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today, color: Colors.white70),
+                const SizedBox(width: 10),
+                Text(
+                  '日期：${_selectedDate.year}年${_selectedDate.month}月${_selectedDate.day}日',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

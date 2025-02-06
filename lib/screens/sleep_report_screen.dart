@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:glassmorphism/glassmorphism.dart';
 import '../services/sleep_record_service.dart';
+import '../services/dream_record_service.dart';
+import '../models/dream_record.dart';
+import '../models/sleep_record.dart';
+import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dream_diary_screen.dart';
+import 'sleep_record_screen.dart';
 
 class SleepReportScreen extends StatefulWidget {
   const SleepReportScreen({super.key});
@@ -14,11 +20,13 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
   int _selectedPeriod = 7; // 默认显示7天
   Map<String, Duration> _sleepData = {};
   bool _isLoading = true;
+  DreamRecord? _todaysDream;
 
   @override
   void initState() {
     super.initState();
     _loadSleepData();
+    _loadTodaysDream();
   }
 
   Future<void> _loadSleepData() async {
@@ -30,6 +38,13 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
     setState(() {
       _sleepData = data;
       _isLoading = false;
+    });
+  }
+
+  Future<void> _loadTodaysDream() async {
+    final dream = await DreamRecordService.instance.getLatestDreamForDate(DateTime.now());
+    setState(() {
+      _todaysDream = dream;
     });
   }
 
@@ -52,28 +67,38 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
           ),
         ),
         child: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
-              _buildAppBar(context),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      _buildPeriodSelector(),
-                      const SizedBox(height: 20),
-                      _buildSleepDurationChart(),
-                      const SizedBox(height: 20),
-                      _buildSleepStagesCard(),
-                      const SizedBox(height: 20),
-                      _buildDreamRecord(),
-                      const SizedBox(height: 20),
-                      _buildMoodAnalysis(),
-                      const SizedBox(height: 20),
-                      _buildAIAnalysis(),
-                    ],
+              Column(
+                children: [
+                  _buildAppBar(context),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          _buildPeriodSelector(),
+                          const SizedBox(height: 20),
+                          _buildSleepDurationChart(),
+                          const SizedBox(height: 20),
+                          _buildSleepStagesCard(),
+                          const SizedBox(height: 20),
+                          _buildDreamRecord(),
+                          const SizedBox(height: 20),
+                          _buildMoodAnalysis(),
+                          const SizedBox(height: 20),
+                          _buildAIAnalysis(),
+                          const SizedBox(height: 80), // 为底部按钮留出空间
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
+              ),
+              Positioned(
+                right: 20,
+                bottom: 20,
+                child: _buildAddRecordButton(),
               ),
             ],
           ),
@@ -383,48 +408,161 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
   }
 
   Widget _buildDreamRecord() {
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: 120,
-      borderRadius: 20,
-      blur: 20,
-      alignment: Alignment.center,
-      border: 2,
-      linearGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.1),
-          Colors.white.withOpacity(0.05),
-        ],
-      ),
-      borderGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.5),
-          Colors.white.withOpacity(0.2),
-        ],
-      ),
-      child: ListTile(
-        leading: const Icon(Icons.cloud, color: Colors.white, size: 30),
-        title: const Text(
-          '昨晚的梦',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap: _todaysDream == null ? null : () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DreamDiaryScreen(
+              initialDreamId: _todaysDream!.id,
+            ),
           ),
+        );
+      },
+      child: GlassmorphicContainer(
+        width: double.infinity,
+        height: 160,
+        borderRadius: 20,
+        blur: 20,
+        alignment: Alignment.center,
+        border: 2,
+        linearGradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.1),
+            Colors.white.withOpacity(0.05),
+          ],
         ),
-        subtitle: const Text(
-          '平静的梦境 - 记录于 7:30',
-          style: TextStyle(
-            color: Colors.white70,
-          ),
+        borderGradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.5),
+            Colors.white.withOpacity(0.2),
+          ],
         ),
-        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '昨晚的梦',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (_todaysDream != null)
+                        Text(
+                          DateFormat('HH:mm').format(_todaysDream!.date),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  if (_todaysDream == null)
+                    const Center(
+                      child: Text(
+                        '今天还没有记录梦境',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                    )
+                  else
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              _getMoodIcon(_todaysDream!.mood),
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _getMoodText(_todaysDream!.mood),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          _todaysDream!.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+            if (_todaysDream != null)
+              Positioned(
+                right: 16,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white.withOpacity(0.7),
+                    size: 16,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
+  }
+
+  IconData _getMoodIcon(int mood) {
+    if (mood <= -60) {
+      return Icons.sentiment_very_dissatisfied;
+    } else if (mood <= -20) {
+      return Icons.sentiment_dissatisfied;
+    } else if (mood < 20) {
+      return Icons.sentiment_neutral;
+    } else if (mood < 60) {
+      return Icons.sentiment_satisfied;
+    } else {
+      return Icons.sentiment_very_satisfied;
+    }
+  }
+
+  String _getMoodText(int mood) {
+    if (mood <= -60) {
+      return '非常消极的梦';
+    } else if (mood <= -20) {
+      return '消极的梦';
+    } else if (mood < 20) {
+      return '中性的梦';
+    } else if (mood < 60) {
+      return '积极的梦';
+    } else {
+      return '非常积极的梦';
+    }
   }
 
   Widget _buildMoodAnalysis() {
@@ -572,6 +710,55 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddRecordButton() {
+    return GlassmorphicContainer(
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      blur: 20,
+      alignment: Alignment.center,
+      border: 2,
+      linearGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.1),
+          Colors.white.withOpacity(0.05),
+        ],
+      ),
+      borderGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.5),
+          Colors.white.withOpacity(0.2),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const SleepRecordScreen(),
+              ),
+            );
+            if (result == true) {
+              _loadSleepData();
+            }
+          },
+          borderRadius: BorderRadius.circular(30),
+          child: const Icon(
+            Icons.add,
+            color: Colors.white,
+            size: 30,
+          ),
         ),
       ),
     );

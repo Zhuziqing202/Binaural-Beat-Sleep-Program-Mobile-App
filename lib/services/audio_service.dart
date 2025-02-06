@@ -38,22 +38,24 @@ class AudioService {
 
     try {
       // 准备非活动播放器
-      await _inactivePlayer.setSource(AssetSource('audio/$soundName.wav'));
+      await _inactivePlayer.setSource(AssetSource('audio/$soundName'));
       await _inactivePlayer.setVolume(0);
       await _inactivePlayer.setReleaseMode(ReleaseMode.loop);
 
-      // 在当前音频即将结束时开始过渡（提前2秒）
-      const audioLength = Duration(seconds: 30);
-      const transitionStart = Duration(seconds: 28); // 在第28秒开始准备过渡
+      // 获取音频文件的持续时间（假设为60秒）
+      const audioDuration = Duration(seconds: 60);
+      const transitionStart = Duration(seconds: 58); // 在第58秒开始准备过渡
       
       _loopTimer?.cancel();
       _loopTimer = Timer(transitionStart, () async {
+        if (!_isPlaying) return;
+        
         // 启动下一个播放器（静音状态）
         await _inactivePlayer.resume();
         
         // 在最后2秒进行音量交叉淡变
         const steps = 20; // 20个步骤完成交叉淡变
-        final stepDuration = 100; // 每步100毫秒，总共2秒
+        const stepDuration = 100; // 每步100毫秒，总共2秒
         final volumeStep = _volume / steps;
         
         var currentVolume = _volume;
@@ -130,16 +132,21 @@ class AudioService {
     }
 
     try {
+      // 停止当前播放的音频
       await _activePlayer.stop();
-      await _activePlayer.setSource(AssetSource('audio/$soundName.wav'));
+      await _inactivePlayer.stop();
+      
+      // 设置音频源并准备播放
+      await _activePlayer.setSource(AssetSource('audio/$soundName'));
       await _activePlayer.setVolume(_volume);
-      await _activePlayer.resume();
       await _activePlayer.setReleaseMode(ReleaseMode.loop);
+      await _activePlayer.resume();
+      
       _currentSound = soundName;
       _isPlaying = true;
 
-      // 准备下一个播放器用于无缝循环
-      _setupLoopTransition(soundName);
+      // 准备第二个播放器用于无缝循环
+      await _setupLoopTransition(soundName);
     } catch (e) {
       print('Error playing sound: $e');
       _isPlaying = false;
@@ -183,7 +190,7 @@ class AudioService {
           await _fadeOutSound();
         }
         await _activePlayer.stop();
-        await _activePlayer.setSource(AssetSource('audio/$soundName.wav'));
+        await _activePlayer.setSource(AssetSource('audio/$soundName'));
         await _activePlayer.setVolume(0);
         await _activePlayer.resume();
         await _activePlayer.setReleaseMode(ReleaseMode.loop);
@@ -253,7 +260,7 @@ class AudioService {
 
     try {
       await _activePlayer.stop();
-      await _activePlayer.setSource(AssetSource('audio/$soundName.wav'));
+      await _activePlayer.setSource(AssetSource('audio/$soundName'));
       await _activePlayer.setVolume(_volume);
       await _activePlayer.resume();
       await _activePlayer.setReleaseMode(ReleaseMode.loop);
