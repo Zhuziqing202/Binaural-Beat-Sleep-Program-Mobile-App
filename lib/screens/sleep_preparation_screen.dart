@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:glassmorphism/glassmorphism.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/audio_player_widget.dart';
 import '../services/audio_service.dart';
 import '../widgets/health_data_widget.dart';
 import '../utils/animation_utils.dart';
 import 'dart:async';
 import 'dart:math';
-import '../services/alarm_service.dart';
 
 class SleepPreparationScreen extends StatefulWidget {
   const SleepPreparationScreen({super.key});
@@ -19,7 +17,6 @@ class SleepPreparationScreen extends StatefulWidget {
 
 class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
   final AudioService _audioService = AudioService.instance;
-  final AlarmService _alarmService = AlarmService.instance;
   final List<Map<String, dynamic>> _sounds = [
     {'name': 'ocean.mp3', 'display': '海浪', 'icon': Icons.waves},
     {'name': 'rain.mp3', 'display': '雨声', 'icon': Icons.water_drop},
@@ -37,80 +34,10 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
   int _remainingCycles = 6;
   double _circleSize = 150.0;
 
-  // 修改闹钟相关状态
-  TimeOfDay _wakeTime = TimeOfDay.now().replacing(hour: 7, minute: 0);
-  bool _enableSmartWake = false;
-  int _smartWakeWindow = 30;
-  final List<int> _smartWakeOptions = [5, 10, 15, 20, 25, 30];
-  bool _hasSetAlarm = false;
-  DateTime? _scheduledAlarmTime;
-
-  Timer? _countdownTimer;
-  final String _alarmTimeKey = 'alarm_time';
-  final String _smartWakeKey = 'smart_wake';
-  final String _smartWakeWindowKey = 'smart_wake_window';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAlarmSettings();
-    _startCountdownTimer();
-  }
-
   @override
   void dispose() {
-    _countdownTimer?.cancel();
+    _breathingTimer?.cancel();
     super.dispose();
-  }
-
-  void _startCountdownTimer() {
-    _countdownTimer?.cancel();
-    _countdownTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted && _hasSetAlarm) {
-        setState(() {});  // 触发重建以更新倒计时显示
-      }
-    });
-  }
-
-  Future<void> _saveAlarmSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (_hasSetAlarm && _scheduledAlarmTime != null) {
-      await prefs.setString(_alarmTimeKey, _scheduledAlarmTime!.toIso8601String());
-      await prefs.setBool(_smartWakeKey, _enableSmartWake);
-      await prefs.setInt(_smartWakeWindowKey, _smartWakeWindow);
-    } else {
-      await prefs.remove(_alarmTimeKey);
-      await prefs.remove(_smartWakeKey);
-      await prefs.remove(_smartWakeWindowKey);
-    }
-  }
-
-  Future<void> _loadAlarmSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    final alarmTimeStr = prefs.getString(_alarmTimeKey);
-    
-    if (alarmTimeStr != null) {
-      final alarmTime = DateTime.parse(alarmTimeStr);
-      // 如果闹钟时间已过期，则不加载
-      if (alarmTime.isAfter(DateTime.now())) {
-        setState(() {
-          _hasSetAlarm = true;
-          _scheduledAlarmTime = alarmTime;
-          _wakeTime = TimeOfDay.fromDateTime(alarmTime);
-          _enableSmartWake = prefs.getBool(_smartWakeKey) ?? false;
-          _smartWakeWindow = prefs.getInt(_smartWakeWindowKey) ?? 30;
-        });
-        // 重新设置系统闹钟
-        await _alarmService.setAlarm(
-          wakeTime: alarmTime,
-          isSmartWake: _enableSmartWake,
-          smartWakeWindow: _enableSmartWake ? _smartWakeWindow : null,
-        );
-      } else {
-        // 清除过期的闹钟设置
-        await _saveAlarmSettings();
-      }
-    }
   }
 
   void _startBreathing() {
@@ -151,7 +78,7 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
     int currentSecond = 0;
     const minSize = 150.0;
     const maxSize = 220.0;
-    const sizeStep = (maxSize - minSize) / breathInDuration; // 每秒增加的尺寸
+    const sizeStep = (maxSize - minSize) / breathInDuration;
 
     _breathingTimer?.cancel();
     _breathingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -290,87 +217,6 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
     });
   }
 
-  String _formatTimeOfDay(TimeOfDay time) {
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    if (hours > 0) {
-      return '$hours小时${minutes > 0 ? ' $minutes分钟' : ''}';
-    }
-    return '$minutes分钟';
-  }
-
-  void _showSnackBar(String message) {
-    if (!mounted) return;
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        duration: const Duration(seconds: 2),
-        backgroundColor: Colors.white.withOpacity(0.15),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(20),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        content: Row(
-          children: [
-            const Icon(Icons.info_outline, color: Colors.white, size: 20),
-            const SizedBox(width: 10),
-            Text(
-              message,
-              style: const TextStyle(color: Colors.white),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _setAlarm() async {
-    final wakeTime = _wakeTime;
-    final now = DateTime.now();
-    var wakeDateTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      wakeTime.hour,
-      wakeTime.minute,
-    );
-
-    if (wakeDateTime.isBefore(now)) {
-      wakeDateTime = wakeDateTime.add(const Duration(days: 1));
-    }
-
-    try {
-      await _alarmService.setAlarm(
-        wakeTime: wakeDateTime,
-        isSmartWake: _enableSmartWake,
-        smartWakeWindow: _enableSmartWake ? _smartWakeWindow : null,
-      );
-
-      setState(() {
-        _hasSetAlarm = true;
-        _scheduledAlarmTime = wakeDateTime;
-      });
-
-      // 保存闹钟设置
-      await _saveAlarmSettings();
-
-      _showSnackBar(
-        _enableSmartWake 
-          ? '已设置智能闹钟,将在${_formatTimeOfDay(wakeTime)}前$_smartWakeWindow分钟内唤醒'
-          : '已设置闹钟,将在${_formatTimeOfDay(wakeTime)}唤醒',
-      );
-    } catch (e) {
-      _showSnackBar('设置闹钟失败,请检查权限设置');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -413,11 +259,6 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
                           .animate()
                           .fadeIn(delay: 300.ms, duration: 500.ms)
                           .slideX(begin: -0.2, end: 0),
-                      const SizedBox(height: 20),
-                      _buildAlarmSettings()
-                          .animate()
-                          .fadeIn(delay: 400.ms, duration: 500.ms)
-                          .slideX(begin: 0.2, end: 0),
                     ],
                   ),
                 ),
@@ -624,238 +465,6 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAlarmSettings() {
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: _hasSetAlarm ? 220 : 240,
-      borderRadius: 20,
-      blur: 20,
-      alignment: Alignment.center,
-      border: 2,
-      linearGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.1),
-          Colors.white.withOpacity(0.05),
-        ],
-      ),
-      borderGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.5),
-          Colors.white.withOpacity(0.2),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '闹钟设置',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (_hasSetAlarm)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.white),
-                    onPressed: () async {
-                      await _alarmService.cancelAlarm();
-                      setState(() {
-                        _hasSetAlarm = false;
-                        _scheduledAlarmTime = null;
-                      });
-                      await _saveAlarmSettings();
-                      _showSnackBar('闹钟已删除');
-                    },
-                  ),
-              ],
-            ),
-            if (_hasSetAlarm) ...[
-              const SizedBox(height: 20),
-              _buildAlarmInfo(),
-            ] else ...[
-              const SizedBox(height: 20),
-              _buildAlarmSetup(),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAlarmInfo() {
-    if (_scheduledAlarmTime == null) return const SizedBox();
-    
-    final now = DateTime.now();
-    final duration = _scheduledAlarmTime!.difference(now);
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.alarm, color: Colors.white, size: 20),
-            const SizedBox(width: 10),
-            Text(
-              '闹钟时间: ${_formatTimeOfDay(_wakeTime)}',
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-            ),
-          ],
-        ),
-        const SizedBox(height: 15),
-        Row(
-          children: [
-            const Icon(Icons.timer_outlined, color: Colors.white, size: 20),
-            const SizedBox(width: 10),
-            Text(
-              '距离闹钟响起: ${_formatDuration(duration)}',
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-            ),
-          ],
-        ),
-        if (_enableSmartWake) ...[
-          const SizedBox(height: 15),
-          Row(
-            children: [
-              const Icon(Icons.brightness_auto, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Text(
-                '智能唤醒: 提前$_smartWakeWindow分钟',
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildAlarmSetup() {
-    return Column(
-      children: [
-        InkWell(
-          onTap: () async {
-            final time = await showTimePicker(
-              context: context,
-              initialTime: _wakeTime,
-              builder: (context, child) {
-                return Theme(
-                  data: Theme.of(context).copyWith(
-                    timePickerTheme: TimePickerThemeData(
-                      backgroundColor: Colors.grey[900],
-                      hourMinuteTextColor: Colors.white,
-                      dayPeriodTextColor: Colors.white,
-                      dialHandColor: const Color(0xFFFF8FB1),
-                      dialBackgroundColor: Colors.grey[800],
-                      dialTextColor: Colors.white,
-                      entryModeIconColor: Colors.white,
-                    ),
-                    textButtonTheme: TextButtonThemeData(
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                  child: child!,
-                );
-              },
-            );
-            if (time != null) {
-              setState(() => _wakeTime = time);
-            }
-          },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                '起床时间',
-                style: TextStyle(color: Colors.white),
-              ),
-              Text(
-                _formatTimeOfDay(_wakeTime),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  '智能唤醒',
-                  style: TextStyle(color: Colors.white),
-                ),
-                const SizedBox(width: 10),
-                if (_enableSmartWake)
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: DropdownButton<int>(
-                      value: _smartWakeWindow,
-                      dropdownColor: const Color(0xFF6B8EFF).withOpacity(0.9),
-                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                      underline: const SizedBox(),
-                      style: const TextStyle(color: Colors.white),
-                      items: _smartWakeOptions.map((minutes) {
-                        return DropdownMenuItem<int>(
-                          value: minutes,
-                          child: Text('$minutes分钟'),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => _smartWakeWindow = value);
-                        }
-                      },
-                    ),
-                  ),
-              ],
-            ),
-            Switch(
-              value: _enableSmartWake,
-              onChanged: (value) => setState(() => _enableSmartWake = value),
-              activeColor: Colors.white,
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _setAlarm,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white.withOpacity(0.2),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 15),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('设置闹钟'),
-          ),
-        ),
-      ],
     );
   }
 } 

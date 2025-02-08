@@ -120,6 +120,7 @@ class AudioService {
     _isPresetMode = true;
     _isCustomMode = false;
     _currentPhase = 0;
+    _sleepStartTime = DateTime.now();
     await _playSleepPhase();
   }
 
@@ -156,31 +157,48 @@ class AudioService {
   Future<void> _playSleepPhase() async {
     if (!_isPresetMode) return;
 
-    String soundFile;
-    switch (_currentPhase) {
+    String? soundFile;
+    // 计算当前所处的小段(0-3)
+    final now = DateTime.now();
+    final elapsedMinutes = now.difference(_sleepStartTime!).inMinutes;
+    final currentCycle = (elapsedMinutes ~/ 90); // 当前是第几个90分钟周期
+    final phaseInCycle = ((elapsedMinutes % 90) ~/ 22.5).toInt(); // 当前周期内的第几个22.5分钟段
+
+    // 根据所处的小段决定播放哪个音频
+    switch (phaseInCycle) {
+      case 0:
+        soundFile = 'pink_noise_n1.wav';
+        break;
       case 1:
-        soundFile = 'pink_noise_n1';
+        soundFile = 'pink_noise_n2.wav';
         break;
       case 2:
-        soundFile = 'pink_noise_n2';
+        soundFile = 'pink_noise_n3.wav';
         break;
       case 3:
-        soundFile = 'pink_noise_n3';
+        // 第四段不播放音频
+        await stopSound();
         break;
-      default:
-        soundFile = 'pink_noise_n1';
     }
 
-    // 使用startCustomMode来播放音频，但不使用初始淡入效果
-    await startCustomMode(soundFile, useInitialFade: false);
-
-    if (_isPresetMode) {
-      // 每个阶段22.5分钟
-      _cycleTimer = Timer(const Duration(minutes: 22, seconds: 30), () {
-        _currentPhase++;
-        _playSleepPhase();
-      });
+    if (soundFile != null) {
+      // 使用startCustomMode来播放音频
+      await startCustomMode(soundFile, useInitialFade: false);
     }
+
+    // 计算到下一个22.5分钟段的时间
+    final nextPhaseStart = _sleepStartTime!.add(
+      Duration(
+        minutes: (currentCycle * 90) + ((phaseInCycle + 1) * 22.5).toInt(),
+      ),
+    );
+    final delayToNextPhase = nextPhaseStart.difference(now);
+
+    // 设置定时器在22.5分钟后切换到下一个阶段
+    _cycleTimer?.cancel();
+    _cycleTimer = Timer(delayToNextPhase, () {
+      _playSleepPhase();
+    });
   }
 
   Future<void> _fadeInSound(String soundName) async {

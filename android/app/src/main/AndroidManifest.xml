@@ -11,7 +11,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     
     <application
-        android:label="pink_sleep"
+        android:label="粉睡眠"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         

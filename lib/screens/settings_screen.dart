@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:glassmorphism/glassmorphism.dart';
+import '../services/notification_service.dart';
+import '../services/settings_service.dart';
+import '../models/app_settings.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -9,16 +12,105 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // 睡眠目标设置
-  double _targetSleepHours = 8.0;
-  TimeOfDay _targetSleepTime = const TimeOfDay(hour: 22, minute: 30);
-  TimeOfDay _targetWakeTime = const TimeOfDay(hour: 6, minute: 30);
+  bool _notificationsEnabled = false;
+  TimeOfDay _sleepTime = const TimeOfDay(hour: 22, minute: 0);
+  TimeOfDay _wakeTime = const TimeOfDay(hour: 7, minute: 0);
+  bool _weekendNotifications = true;
 
-  // 通知设置
-  bool _enableSleepReminder = true;
-  bool _enableWakeReminder = true;
-  bool _enableWeeklyReport = true;
-  bool _enableHealthSync = true;
+  @override
+  void initState() {
+    super.initState();
+    _initializeNotifications();
+  }
+
+  Future<void> _initializeNotifications() async {
+    final notificationService = NotificationService.instance;
+    final hasPermission = await notificationService.requestPermissions();
+    setState(() {
+      _notificationsEnabled = hasPermission;
+    });
+  }
+
+  Future<void> _toggleNotifications(bool value) async {
+    if (value) {
+      final hasPermission = await NotificationService.instance.requestPermissions();
+      if (hasPermission) {
+        setState(() {
+          _notificationsEnabled = true;
+        });
+        _scheduleNotifications();
+      }
+    } else {
+      await NotificationService.instance.cancelAllNotifications();
+      setState(() {
+        _notificationsEnabled = false;
+      });
+    }
+  }
+
+  Future<void> _scheduleNotifications() async {
+    if (!_notificationsEnabled) return;
+
+    final now = DateTime.now();
+    
+    // 设置睡眠时间提醒
+    final sleepDateTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      _sleepTime.hour,
+      _sleepTime.minute,
+    );
+
+    await NotificationService.instance.scheduleNotification(
+      id: 1,
+      title: '该睡觉了',
+      body: '保持规律的作息对健康很重要',
+      scheduledDate: sleepDateTime,
+    );
+
+    // 设置起床时间提醒
+    final wakeDateTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      _wakeTime.hour,
+      _wakeTime.minute,
+    );
+
+    await NotificationService.instance.scheduleNotification(
+      id: 2,
+      title: '早安',
+      body: '是时候开始新的一天了',
+      scheduledDate: wakeDateTime,
+    );
+  }
+
+  Future<void> _selectSleepTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _sleepTime,
+    );
+    if (picked != null && picked != _sleepTime) {
+      setState(() {
+        _sleepTime = picked;
+      });
+      _scheduleNotifications();
+    }
+  }
+
+  Future<void> _selectWakeTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _wakeTime,
+    );
+    if (picked != null && picked != _wakeTime) {
+      setState(() {
+        _wakeTime = picked;
+      });
+      _scheduleNotifications();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,8 +133,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     children: [
                       _buildSleepGoalCard(),
-                      const SizedBox(height: 20),
-                      _buildHealthSyncCard(),
                       const SizedBox(height: 20),
                       _buildNotificationCard(),
                       const SizedBox(height: 20),
@@ -83,7 +173,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSleepGoalCard() {
     return GlassmorphicContainer(
       width: double.infinity,
-      height: 280,
+      height: 240,
       borderRadius: 20,
       blur: 20,
       alignment: Alignment.center,
@@ -120,97 +210,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 20),
             _buildSliderSetting(
               '目标睡眠时长',
-              '${_targetSleepHours.toStringAsFixed(1)}小时',
-              _targetSleepHours,
+              '${_sleepTime.hour}:${_sleepTime.minute}',
+              _sleepTime,
               6.0,
               10.0,
-              (value) => setState(() => _targetSleepHours = value),
-            ),
-            const SizedBox(height: 20),
-            _buildTimeSetting(
-              '目标入睡时间',
-              _targetSleepTime.format(context),
-              () async {
-                final time = await showTimePicker(
-                  context: context,
-                  initialTime: _targetSleepTime,
-                );
-                if (time != null) {
-                  setState(() => _targetSleepTime = time);
-                }
-              },
+              (value) => setState(() => _sleepTime = value),
             ),
             const SizedBox(height: 20),
             _buildTimeSetting(
               '目标起床时间',
-              _targetWakeTime.format(context),
-              () async {
-                final time = await showTimePicker(
-                  context: context,
-                  initialTime: _targetWakeTime,
-                );
-                if (time != null) {
-                  setState(() => _targetWakeTime = time);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHealthSyncCard() {
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: 180,
-      borderRadius: 20,
-      blur: 20,
-      alignment: Alignment.center,
-      border: 2,
-      linearGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.1),
-          Colors.white.withOpacity(0.05),
-        ],
-      ),
-      borderGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.5),
-          Colors.white.withOpacity(0.2),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '健康数据同步',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildSwitchSetting(
-              '同步健康数据',
-              '从Apple Watch同步睡眠数据',
-              _enableHealthSync,
-              (value) => setState(() => _enableHealthSync = value),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '上次同步时间：2024-03-20 08:30',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 12,
-              ),
+              _wakeTime.format(context),
+              _selectWakeTime,
             ),
           ],
         ),
@@ -257,24 +267,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 20),
             _buildSwitchSetting(
-              '睡前提醒',
-              '在设定的睡眠时间前提醒',
-              _enableSleepReminder,
-              (value) => setState(() => _enableSleepReminder = value),
+              '通知',
+              '开启睡眠和起床提醒',
+              _notificationsEnabled,
+              _toggleNotifications,
+            ),
+            const SizedBox(height: 15),
+            _buildTimeSetting(
+              '睡眠时间',
+              _sleepTime.format(context),
+              _selectSleepTime,
+            ),
+            const SizedBox(height: 15),
+            _buildTimeSetting(
+              '起床时间',
+              _wakeTime.format(context),
+              _selectWakeTime,
             ),
             const SizedBox(height: 15),
             _buildSwitchSetting(
-              '起床提醒',
-              '在设定的起床时间提醒',
-              _enableWakeReminder,
-              (value) => setState(() => _enableWakeReminder = value),
-            ),
-            const SizedBox(height: 15),
-            _buildSwitchSetting(
-              '周报提醒',
-              '每周日发送睡眠周报',
-              _enableWeeklyReport,
-              (value) => setState(() => _enableWeeklyReport = value),
+              '周末通知',
+              '在周末也发送提醒',
+              _weekendNotifications,
+              (value) {
+                setState(() {
+                  _weekendNotifications = value;
+                });
+                _scheduleNotifications();
+              },
             ),
           ],
         ),
@@ -322,8 +342,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 20),
             _buildSettingItem(
               '版本信息',
-              'v1.0.0',
-              onTap: () {},
+              'v1.1.0',
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => Dialog(
+                    backgroundColor: Colors.transparent,
+                    child: GlassmorphicContainer(
+                      width: 300,
+                      height: 200,
+                      borderRadius: 20,
+                      blur: 20,
+                      alignment: Alignment.center,
+                      border: 2,
+                      linearGradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withOpacity(0.1),
+                          Colors.white.withOpacity(0.05),
+                        ],
+                      ),
+                      borderGradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withOpacity(0.5),
+                          Colors.white.withOpacity(0.2),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              '粉睡眠',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'v1.1.0',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              '开发团队',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              '我来帮你画、&.、sky',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 15),
             _buildSettingItem(
@@ -340,10 +432,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSliderSetting(
     String title,
     String value,
-    double current,
+    TimeOfDay current,
     double min,
     double max,
-    ValueChanged<double> onChanged,
+    ValueChanged<TimeOfDay> onChanged,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,14 +459,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
-        Slider(
-          value: current,
-          min: min,
-          max: max,
-          divisions: ((max - min) * 2).toInt(),
-          activeColor: Colors.white,
-          inactiveColor: Colors.white.withOpacity(0.3),
-          onChanged: onChanged,
+        InkWell(
+          onTap: () async {
+            final TimeOfDay? picked = await showTimePicker(
+              context: context,
+              initialTime: current,
+            );
+            if (picked != null && picked != current) {
+              onChanged(picked);
+              await _scheduleNotifications();
+            }
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: Colors.white,
+              ),
+            ],
+          ),
         ),
       ],
     );

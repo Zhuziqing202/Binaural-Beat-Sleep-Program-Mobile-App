@@ -81,23 +81,27 @@ class SleepRecordService {
   // 获取最近n天的记录
   Future<Map<String, Duration>> getRecentRecords(int days, String groupBy) async {
     final end = DateTime.now();
-    DateTime start;
+    final start = end.subtract(Duration(days: days - 1));
     
-    switch (groupBy) {
-      case 'day':
-        start = end.subtract(Duration(days: days - 1));
-        break;
-      case 'month':
-        start = DateTime(end.year, end.month - days + 1, 1);
-        break;
-      case 'year':
-        start = DateTime(end.year - days + 1, 1, 1);
-        break;
-      default:
-        start = end.subtract(Duration(days: days - 1));
+    // 获取所有记录
+    final records = await getAllRecords();
+    
+    // 创建日期范围内的所有日期键
+    final Map<String, Duration> durations = {};
+    for (var date = start; date.isBefore(end) || date.isAtSameMomentAs(end); date = date.add(const Duration(days: 1))) {
+      final key = SleepRecord.getDateString(date);
+      durations[key] = Duration.zero;
     }
-    
-    return getRecordsInRange(start, end, groupBy);
+
+    // 遍历记录，填充数据
+    for (var record in records) {
+      final recordDate = record.date;
+      if (durations.containsKey(recordDate)) {
+        durations[recordDate] = record.duration;
+      }
+    }
+
+    return durations;
   }
 
   // 清除所有记录

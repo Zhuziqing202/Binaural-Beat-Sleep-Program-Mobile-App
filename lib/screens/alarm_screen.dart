@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:glassmorphism/glassmorphism.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../services/alarm_service.dart';
+import '../services/notification_service.dart';
 
 class AlarmScreen extends StatefulWidget {
   const AlarmScreen({super.key});
@@ -12,7 +12,7 @@ class AlarmScreen extends StatefulWidget {
 }
 
 class _AlarmScreenState extends State<AlarmScreen> {
-  final AlarmService _alarmService = AlarmService.instance;
+  final NotificationService _notificationService = NotificationService.instance;
   bool _isSnoozing = false;
 
   @override
@@ -125,7 +125,14 @@ class _AlarmScreenState extends State<AlarmScreen> {
                 child: InkWell(
                   onTap: () async {
                     setState(() => _isSnoozing = true);
-                    await _alarmService.snoozeAlarm();
+                    // 设置5分钟后的通知
+                    final snoozeTime = DateTime.now().add(const Duration(minutes: 5));
+                    await _notificationService.scheduleNotification(
+                      title: '闹钟',
+                      body: '该起床啦！',
+                      scheduledDate: snoozeTime,
+                      payload: 'alarm',
+                    );
                     if (mounted) {
                       Navigator.pop(context);
                     }
@@ -172,7 +179,7 @@ class _AlarmScreenState extends State<AlarmScreen> {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () async {
-                  await _alarmService.cancelAlarm();
+                  await _notificationService.cancelAllNotifications();
                   if (mounted) {
                     Navigator.pop(context);
                   }

@@ -5,6 +5,9 @@ import '../services/audio_service.dart';
 import '../services/sleep_record_service.dart';
 import '../models/sleep_record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+import '../services/sleep_stage_service.dart';
+import 'package:intl/intl.dart';
 
 class SleepingScreen extends StatefulWidget {
   const SleepingScreen({super.key});
@@ -15,98 +18,89 @@ class SleepingScreen extends StatefulWidget {
 
 class _SleepingScreenState extends State<SleepingScreen> {
   final AudioService _audioService = AudioService.instance;
+  final SleepStageService _stageService = SleepStageService.instance;
   int _selectedMode = 0; // 0: 睡眠阶段, 1: 预设周期, 2: 频段选择
   double _volume = 0.7; // 默认音量
-  DateTime? _startTime;
-  
-  final List<String> _modes = ['睡眠阶段同步', '预设睡眠周期', '频段选择'];
-  final List<String> _modeDescriptions = [
-    '根据睡眠阶段自动调整',
-    '按预设周期播放',
-    '手动选择频段播放'
-  ];
+  DateTime _startTime = DateTime.now();
+  Timer? _timer;
+  Duration _elapsed = Duration.zero;
 
   @override
   void initState() {
     super.initState();
-    _loadStartTime();
-    // 启动定时更新
-    _startPeriodicUpdate();
+    _startTimer();
+    _startSleepAudio();
+    _startSleepMonitoring();
   }
 
-  void _startPeriodicUpdate() {
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {});
-        _startPeriodicUpdate();
-      }
-    });
-  }
-
-  Future<void> _loadStartTime() async {
-    final prefs = await SharedPreferences.getInstance();
-    final startTimeStr = prefs.getString('sleep_start_time');
-    if (startTimeStr != null) {
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
-        _startTime = DateTime.parse(startTimeStr);
+        _elapsed = DateTime.now().difference(_startTime);
       });
-      _audioService.setSleepStartTime(_startTime!);
-    } else {
-      _startSleeping();
-    }
-  }
-
-  Future<void> _startSleeping() async {
-    final now = DateTime.now();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('sleep_start_time', now.toIso8601String());
-    setState(() {
-      _startTime = now;
     });
   }
 
-  Future<void> _endSleeping() async {
-    final prefs = await SharedPreferences.getInstance();
-    final startTimeStr = prefs.getString('sleep_start_time');
-    if (startTimeStr != null) {
-      final startTime = DateTime.parse(startTimeStr);
-      final endTime = DateTime.now();
-      final duration = endTime.difference(startTime);
-      
-      // 创建并保存睡眠记录
-      final record = SleepRecord(
-        startTime: startTime,
-        endTime: endTime,
-        duration: duration,
-        date: SleepRecord.getDateString(startTime),
-      );
-      
-      await SleepRecordService.instance.saveSleepRecord(record);
-      await prefs.remove('sleep_start_time');
-    }
+  Future<void> _startSleepAudio() async {
+    // 默认使用预设周期模式开始
+    _selectedMode = 1;
+    await _audioService.startPresetCycle();
+  }
+
+  void _startSleepMonitoring() {
+    _startTime = DateTime.now();
+    _stageService.startMonitoring();
+  }
+
+  Future<void> _stopSleepMonitoring() async {
+    _timer?.cancel();
+    _stageService.stopMonitoring();
+
+    // 获取睡眠阶段数据
+    final stageDurations = _stageService.getStagesDuration();
+    final metrics = _stageService.getSleepQualityMetrics();
     
-    // 停止音频播放
-    _audioService.stopSound();
-    Navigator.pop(context);
+    // 创建睡眠记录
+    final record = SleepRecord(
+      startTime: _startTime,
+      endTime: DateTime.now(),
+      duration: _elapsed,
+      date: SleepRecord.getDateString(_startTime),
+      stageDurations: {
+        'awake': stageDurations[SleepStage.awake]?.inSeconds ?? 0,
+        'core': stageDurations[SleepStage.core]?.inSeconds ?? 0,
+        'deep': stageDurations[SleepStage.deep]?.inSeconds ?? 0,
+        'rem': stageDurations[SleepStage.rem]?.inSeconds ?? 0,
+      },
+      sleepEfficiency: metrics['sleepEfficiency'] ?? 0.0,
+    );
+
+    // 保存记录
+    await SleepRecordService.instance.saveSleepRecord(record);
+    
+    await _audioService.stopSound();
+    if (mounted) {
+      Navigator.pop(context, true);
+    }
   }
 
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
-    String hours = twoDigits(duration.inHours);
-    String minutes = twoDigits(duration.inMinutes.remainder(60));
-    return '$hours:$minutes';
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$hours:$minutes:$seconds';
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _audioService.stopSound();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    Duration elapsed = _startTime != null ? DateTime.now().difference(_startTime!) : Duration.zero;
-    
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -126,30 +120,14 @@ class _SleepingScreenState extends State<SleepingScreen> {
                   child: Column(
                     children: [
                       const Spacer(),
-                      _buildTimer(elapsed)
-                          .animate(
-                            onPlay: (controller) => controller.repeat(),
-                          )
-                          .shimmer(
-                            duration: 2.seconds,
-                            color: Colors.white24,
-                          ),
-                      const Spacer(),
-                      _buildModeSelector()
-                          .animate()
-                          .fadeIn(delay: 200.ms, duration: 500.ms)
-                          .slideX(begin: -0.2, end: 0),
-                      const SizedBox(height: 20),
-                      _buildVolumeControl()
-                          .animate()
-                          .fadeIn(delay: 400.ms, duration: 500.ms)
-                          .slideX(begin: -0.2, end: 0),
+                      _buildTimeDisplay(),
                       const SizedBox(height: 40),
-                      _buildEndSleepButton()
-                          .animate()
-                          .fadeIn(delay: 500.ms, duration: 500.ms)
-                          .scale(delay: 500.ms, duration: 500.ms),
+                      _buildModeSelector(),
                       const SizedBox(height: 20),
+                      _buildVolumeControl(),
+                      const SizedBox(height: 40),
+                      _buildEndButton(),
+                      const Spacer(),
                     ],
                   ),
                 ),
@@ -183,44 +161,24 @@ class _SleepingScreenState extends State<SleepingScreen> {
     );
   }
 
-  Widget _buildTimer(Duration elapsed) {
-    return Stack(
-      alignment: Alignment.center,
+  Widget _buildTimeDisplay() {
+    return Column(
       children: [
-        SizedBox(
-          width: 200,
-          height: 200,
-          child: CircularProgressIndicator(
-            value: (elapsed.inMinutes % 60) / 60,
-            strokeWidth: 8,
-            backgroundColor: Colors.white.withOpacity(0.2),
+        Text(
+          _formatDuration(_elapsed),
+          style: const TextStyle(
             color: Colors.white,
+            fontSize: 60,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _formatDuration(elapsed),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 40,
-                fontWeight: FontWeight.bold,
-              ),
-            ).animate(
-              onPlay: (controller) => controller.repeat(),
-            ).fadeIn(
-              duration: 3.seconds,
-              curve: Curves.easeInOut,
-            ).then(delay: 1.seconds),
-            Text(
-              '已睡眠时间',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 16,
-              ),
-            ),
-          ],
+        const SizedBox(height: 10),
+        const Text(
+          '已入睡时长',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+          ),
         ),
       ],
     );
@@ -476,10 +434,10 @@ class _SleepingScreenState extends State<SleepingScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildCustomModeButton('助眠', 'pink_noise_falling_asleep', Icons.nightlight),
-                  _buildCustomModeButton('N1', 'pink_noise_n1', Icons.waves),
-                  _buildCustomModeButton('N2', 'pink_noise_n2', Icons.waves_outlined),
-                  _buildCustomModeButton('N3', 'pink_noise_n3', Icons.water),
+                  _buildCustomModeButton('助眠', 'pink_noise_falling_asleep.wav', Icons.nightlight),
+                  _buildCustomModeButton('N1', 'pink_noise_n1.wav', Icons.waves),
+                  _buildCustomModeButton('N2', 'pink_noise_n2.wav', Icons.waves_outlined),
+                  _buildCustomModeButton('N3', 'pink_noise_n3.wav', Icons.water),
                 ],
               ),
             ),
@@ -491,7 +449,7 @@ class _SleepingScreenState extends State<SleepingScreen> {
   Widget _buildCustomModeButton(String label, String soundName, IconData icon) {
     final isPlaying = _audioService.isCustomMode && 
                      _audioService.isPlaying && 
-                     _audioService.currentSound == soundName;
+                     _audioService.currentSound == '$soundName.mp3';
     
     return GestureDetector(
       onTap: () {
@@ -540,6 +498,10 @@ class _SleepingScreenState extends State<SleepingScreen> {
   }
 
   Widget _buildSoundOption(String text, String soundName, IconData icon) {
+    final isPlaying = _audioService.isCustomMode && 
+                     _audioService.isPlaying && 
+                     _audioService.currentSound == '$soundName.mp3';
+    
     return Material(
       color: Colors.transparent,
       child: ListTile(
@@ -547,7 +509,7 @@ class _SleepingScreenState extends State<SleepingScreen> {
           if (soundName == 'none') {
             _audioService.stopSound();
           } else {
-            _audioService.playSound(soundName);
+            _audioService.playSound('$soundName.mp3');
           }
           Navigator.pop(context);
         },
@@ -559,6 +521,11 @@ class _SleepingScreenState extends State<SleepingScreen> {
             fontSize: 14,
           ),
         ),
+        trailing: isPlaying ? const Icon(
+          Icons.volume_up,
+          color: Colors.white,
+          size: 20,
+        ) : null,
       ),
     );
   }
@@ -613,106 +580,106 @@ class _SleepingScreenState extends State<SleepingScreen> {
     );
   }
 
-  Widget _buildEndSleepButton() {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: () {
-            showDialog(
-              context: context,
-              builder: (context) => Dialog(
-                backgroundColor: Colors.transparent,
-                child: GlassmorphicContainer(
-                  width: 280,
-                  height: 180,
-                  borderRadius: 20,
-                  blur: 20,
-                  alignment: Alignment.center,
-                  border: 2,
-                  linearGradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.1),
-                      Colors.white.withOpacity(0.05),
-                    ],
+  Widget _buildEndButton() {
+    return GestureDetector(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: GlassmorphicContainer(
+              width: 280,
+              height: 180,
+              borderRadius: 20,
+              blur: 20,
+              alignment: Alignment.center,
+              border: 2,
+              linearGradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.1),
+                  Colors.white.withOpacity(0.05),
+                ],
+              ),
+              borderGradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.5),
+                  Colors.white.withOpacity(0.2),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      '确认结束睡眠',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  borderGradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.5),
-                      Colors.white.withOpacity(0.2),
-                    ],
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      '确定要结束本次睡眠记录吗？',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.white24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.all(20),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
                         child: Text(
-                          '确认结束睡眠',
+                          '取消',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 20,
+                        color: Colors.white24,
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _stopSleepMonitoring();
+                        },
+                        child: const Text(
+                          '确定',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          '确定要结束本次睡眠记录吗？',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Divider(color: Colors.white24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text(
-                              '取消',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            width: 1,
-                            height: 20,
-                            color: Colors.white24,
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _endSleeping();
-                            },
-                            child: const Text(
-                              '确定',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ],
                   ),
-                ),
+                ],
               ),
-            );
-          },
-          child: Container(
+            ),
+          ),
+        );
+      },
+      child: Column(
+        children: [
+          Container(
             width: 80,
             height: 80,
             decoration: BoxDecoration(
@@ -743,17 +710,17 @@ class _SleepingScreenState extends State<SleepingScreen> {
             end: const Offset(1.1, 1.1),
             curve: Curves.easeInOut,
           ),
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          '结束睡眠',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+          const SizedBox(height: 10),
+          const Text(
+            '结束睡眠',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 } 

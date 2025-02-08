@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
-import 'services/alarm_service.dart';
 
 class App extends StatelessWidget {
   const App({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // 设置状态栏透明
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
+
     return MaterialApp(
       title: 'Pink Sleep',
-      navigatorKey: navigatorKey,
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark,
-      debugShowCheckedModeBanner: false,
       home: const HomeScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 } 

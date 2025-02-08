@@ -367,6 +367,8 @@ class _SleepRecordScreenState extends State<SleepRecordScreen> {
       endTime: endDateTime,
       duration: _calculateDuration(),
       date: SleepRecord.getDateString(startDateTime),
+      stageDurations: {'awake': 0, 'core': 0, 'deep': 0, 'rem': 0},
+      sleepEfficiency: 0.0,
     );
 
     await SleepRecordService.instance.saveSleepRecord(record);
