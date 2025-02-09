@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:glassmorphism/glassmorphism.dart';
 import '../services/sleep_record_service.dart';
 import '../services/dream_record_service.dart';
+import '../services/sleep_score_service.dart';
 import '../models/dream_record.dart';
 import '../models/sleep_record.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dream_diary_screen.dart';
 import 'sleep_record_screen.dart';
 import 'sleep_records_list_screen.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class SleepReportScreen extends StatefulWidget {
   const SleepReportScreen({super.key});
@@ -19,10 +21,14 @@ class SleepReportScreen extends StatefulWidget {
 
 class _SleepReportScreenState extends State<SleepReportScreen> {
   int _selectedPeriod = 7; // 默认显示7天
+  int _selectedWeekOffset = 0; // 添加周偏移量状态
   Map<String, Duration> _sleepData = {};
   bool _isLoading = true;
   DreamRecord? _todaysDream;
   Map<String, double> _stageDurations = {};
+  double _sleepScore = 0;
+  String _scoreGrade = 'D';
+  String _scoreSuggestion = '';
 
   @override
   void initState() {
@@ -33,31 +39,65 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
 
   Future<void> _loadSleepData() async {
     setState(() => _isLoading = true);
-    
+
     // 获取最近指定天数的睡眠记录
-    final data = await SleepRecordService.instance.getRecentRecords(_selectedPeriod, 'day');
-    
-    // 获取最新记录的睡眠阶段数据
+    final data = await SleepRecordService.instance
+        .getRecentRecords(_selectedPeriod, 'day');
+
+    // 获取最新记录的睡眠阶段数据和计算睡眠评分
     final records = await SleepRecordService.instance.getAllRecords();
     Map<String, int>? latestStageDurations;
+    double score = 0;
+    String grade = 'D';
+    String suggestion = '暂无睡眠记录';
+
     if (records.isNotEmpty) {
-      final latestRecord = records.reduce((a, b) => 
-        a.startTime.isAfter(b.startTime) ? a : b
-      );
-      latestStageDurations = latestRecord.stageDurations;
+      // 获取昨天的日期范围（18:00到今天12:00）
+      final now = DateTime.now();
+      final yesterday = now.subtract(const Duration(days: 1));
+      final startTime =
+          DateTime(yesterday.year, yesterday.month, yesterday.day, 18);
+      final endTime = DateTime(now.year, now.month, now.day, 12);
+
+      // 筛选这个时间范围内的睡眠记录
+      final yesterdaySleepRecords = records.where((record) {
+        return record.startTime.isAfter(startTime) &&
+            record.startTime.isBefore(endTime);
+      }).toList();
+
+      if (yesterdaySleepRecords.isNotEmpty) {
+        // 如果有多条记录，选择最长的那条
+        final latestRecord = yesterdaySleepRecords.reduce(
+            (a, b) => a.duration.inMinutes > b.duration.inMinutes ? a : b);
+
+        latestStageDurations = latestRecord.stageDurations;
+
+        // 计算睡眠评分
+        score = SleepScoreService.calculateSleepScore(
+          sleepStart: latestRecord.startTime,
+          sleepEnd: latestRecord.endTime,
+          efficiency: latestRecord.sleepEfficiency,
+        );
+        grade = SleepScoreService.getScoreGrade(score);
+        suggestion = SleepScoreService.getScoreSuggestion(score);
+      }
     }
 
     setState(() {
       _sleepData = data;
-      _stageDurations = latestStageDurations?.map(
-        (key, value) => MapEntry(key, value.toDouble())
-      ) ?? {};
+      _stageDurations = latestStageDurations
+              ?.map((key, value) => MapEntry(key, value.toDouble())) ??
+          {};
+      _sleepScore = score;
+      _scoreGrade = grade;
+      _scoreSuggestion = suggestion;
       _isLoading = false;
     });
   }
 
   Future<void> _loadTodaysDream() async {
-    final dream = await DreamRecordService.instance.getLatestDreamForDate(DateTime.now());
+    final dream =
+        await DreamRecordService.instance.getLatestDreamForDate(DateTime.now());
     setState(() {
       _todaysDream = dream;
     });
@@ -84,40 +124,52 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
         child: SafeArea(
           child: Stack(
             children: [
-              Column(
-                children: [
-                  _buildAppBar(context),
-                  if (_isLoading)
-                    const Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
+              SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Container(
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.of(context).size.height -
+                        MediaQuery.of(context).padding.top -
+                        MediaQuery.of(context).padding.bottom,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        Row(
                           children: [
-                            _buildSleepChart(),
-                            const SizedBox(height: 20),
-                            _buildViewDetailsButton(),
-                            const SizedBox(height: 20),
-                            _buildSleepStagesCard(),
-                            const SizedBox(height: 20),
-                            if (_todaysDream != null) _buildDreamCard(),
-                            const SizedBox(height: 20),
-                            _buildMoodAnalysis(),
-                            const SizedBox(height: 20),
-                            _buildAIAnalysis(),
-                            const SizedBox(height: 80), // 为底部按钮留出空间
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back_ios,
+                                  color: Colors.white),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            const Text(
+                              '睡眠报告',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        _buildStatisticsCard(),
+                        const SizedBox(height: 10),
+                        _buildSleepChart(),
+                        const SizedBox(height: 10),
+                        _buildViewDetailsButton(),
+                        const SizedBox(height: 10),
+                        _buildSleepStagesCard(),
+                        const SizedBox(height: 10),
+                        _buildDreamCard(),
+                        const SizedBox(height: 90),
+                      ],
                     ),
-                ],
+                  ),
+                ),
               ),
               Positioned(
                 right: 20,
@@ -131,33 +183,136 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
+  Widget _buildStatisticsCard() {
+    return FutureBuilder<List<SleepRecord>>(
+      future: SleepRecordService.instance.getAllRecords(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox(height: 100);
+        }
+
+        // 获取选定周的日期范围
+        final now = DateTime.now();
+        final weekStart =
+            now.subtract(Duration(days: 7 * _selectedWeekOffset + 6));
+        final weekEnd = weekStart.add(const Duration(days: 6));
+
+        // 筛选该周的睡眠记录
+        final weekRecords = snapshot.data!.where((record) {
+          return record.startTime.isAfter(weekStart) &&
+              record.startTime.isBefore(weekEnd.add(const Duration(days: 1)));
+        }).toList();
+
+        // 计算平均睡眠时长
+        double avgDuration = 0;
+        if (weekRecords.isNotEmpty) {
+          final totalMinutes = weekRecords.fold<int>(
+              0, (sum, record) => sum + record.duration.inMinutes);
+          avgDuration = totalMinutes / (60.0 * weekRecords.length);
+        }
+
+        // 计算平均入睡时间
+        String avgBedtime = '--:--';
+        if (weekRecords.isNotEmpty) {
+          final totalMinutes = weekRecords.fold<int>(0, (sum, record) {
+            final hour = record.startTime.hour;
+            final minute = record.startTime.minute;
+            // 如果时间在凌晨,加24小时来计算平均值
+            final adjustedHour = hour < 12 ? hour + 24 : hour;
+            return sum + (adjustedHour * 60 + minute);
+          });
+          final avgMinutes = totalMinutes ~/ weekRecords.length;
+          final avgHour = (avgMinutes ~/ 60) % 24;
+          final avgMinute = avgMinutes % 60;
+          avgBedtime =
+              '${avgHour.toString().padLeft(2, '0')}:${avgMinute.toString().padLeft(2, '0')}';
+        }
+
+        // 计算平均得分
+        double avgScore = 0;
+        if (weekRecords.isNotEmpty) {
+          final totalScore = weekRecords.fold<double>(0, (sum, record) {
+            return sum +
+                SleepScoreService.calculateSleepScore(
+                  sleepStart: record.startTime,
+                  sleepEnd: record.endTime,
+                  efficiency: record.sleepEfficiency,
+                );
+          });
+          avgScore = totalScore / weekRecords.length;
+        }
+
+        return GlassmorphicContainer(
+          width: double.infinity,
+          height: 100,
+          borderRadius: 15,
+          blur: 20,
+          alignment: Alignment.center,
+          border: 2,
+          linearGradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withOpacity(0.1),
+              Colors.white.withOpacity(0.05),
+            ],
           ),
-          const Text(
-            '睡眠报告',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+          borderGradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withOpacity(0.5),
+              Colors.white.withOpacity(0.2),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem('平均时长', '${avgDuration.toStringAsFixed(1)}h',
+                    Icons.access_time),
+                _buildStatItem('入睡时间', avgBedtime, Icons.nightlight),
+                _buildStatItem('平均得分', avgScore.toStringAsFixed(0), Icons.star),
+              ],
             ),
           ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: Colors.white, size: 20),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.7),
+            fontSize: 12,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildSleepChart() {
     return GlassmorphicContainer(
       width: double.infinity,
-      height: 300,
-      borderRadius: 20,
+      height: 220,
+      borderRadius: 15,
       blur: 20,
       alignment: Alignment.center,
       border: 2,
@@ -178,10 +333,10 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -193,202 +348,173 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                _buildPeriodSelector(),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left, color: Colors.white),
+                      onPressed: () {
+                        setState(() {
+                          _selectedWeekOffset++;
+                        });
+                      },
+                    ),
+                    IconButton(
+                      icon:
+                          const Icon(Icons.chevron_right, color: Colors.white),
+                      onPressed: _selectedWeekOffset > 0
+                          ? () {
+                              setState(() {
+                                _selectedWeekOffset--;
+                              });
+                            }
+                          : null,
+                    ),
+                  ],
+                ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
             Expanded(
-              child: _buildChart(),
+              child: FutureBuilder<List<SleepRecord>>(
+                future: SleepRecordService.instance.getAllRecords(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    );
+                  }
+
+                  // 获取选定周的日期范围
+                  final now = DateTime.now();
+                  final weekStart =
+                      now.subtract(Duration(days: 7 * _selectedWeekOffset + 6));
+                  final dates = List.generate(7, (index) {
+                    return weekStart.add(Duration(days: index));
+                  });
+
+                  // 为每一天计算睡眠时长
+                  final spots = dates.asMap().entries.map((entry) {
+                    final date = entry.value;
+                    final dayStart =
+                        DateTime(date.year, date.month, date.day, 18);
+                    final dayEnd = date.add(const Duration(days: 1, hours: 12));
+
+                    final dayRecords = snapshot.data!.where((record) {
+                      return record.startTime.isAfter(dayStart) &&
+                          record.startTime.isBefore(dayEnd);
+                    }).toList();
+
+                    double sleepHours = 0;
+                    if (dayRecords.isNotEmpty) {
+                      final longestRecord = dayRecords.reduce((a, b) =>
+                          a.duration.inMinutes > b.duration.inMinutes ? a : b);
+                      sleepHours = longestRecord.duration.inMinutes / 60.0;
+                    }
+
+                    return FlSpot(entry.key.toDouble(), sleepHours);
+                  }).toList();
+
+                  return LineChart(
+                    LineChartData(
+                      gridData: FlGridData(show: false),
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              if (value % 2 == 0) {
+                                return Text(
+                                  '${value.toInt()}h',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.7),
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }
+                              return const Text('');
+                            },
+                            reservedSize: 30,
+                          ),
+                        ),
+                        rightTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        topTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            interval: 1,
+                            getTitlesWidget: (value, meta) {
+                              final intValue = value.toInt();
+                              if (intValue >= 0 && intValue < dates.length) {
+                                final date = dates[intValue];
+                                return Text(
+                                  '${date.month}/${date.day}',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.7),
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }
+                              return const Text('');
+                            },
+                          ),
+                        ),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      minX: 0,
+                      maxX: 6,
+                      minY: 0,
+                      maxY: 12,
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: spots,
+                          isCurved: true,
+                          curveSmoothness: 0.2,
+                          preventCurveOverShooting: true,
+                          color: Colors.white,
+                          barWidth: 2,
+                          isStrokeCapRound: true,
+                          dotData: FlDotData(
+                            show: true,
+                            getDotPainter: (spot, percent, barData, index) {
+                              return FlDotCirclePainter(
+                                radius: 4,
+                                color: Colors.white,
+                                strokeWidth: 1,
+                                strokeColor: Colors.white,
+                              );
+                            },
+                          ),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: Colors.white.withOpacity(0.1),
+                            cutOffY: 0,
+                            applyCutOffY: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildPeriodSelector() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildPeriodButton('7天', 7),
-        const SizedBox(width: 10),
-        _buildPeriodButton('30天', 30),
-        const SizedBox(width: 10),
-        _buildPeriodButton('90天', 90),
-      ],
-    );
-  }
-
-  Widget _buildPeriodButton(String text, int days) {
-    final isSelected = _selectedPeriod == days;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedPeriod = days;
-        });
-        _loadSleepData();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(
-            color: Colors.white.withOpacity(isSelected ? 0.5 : 0.3),
-            width: 1,
-        ),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-            color: Colors.white.withOpacity(isSelected ? 1 : 0.7),
-            fontSize: 12,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChart() {
-    if (_sleepData.isEmpty) {
-      return const Center(
-        child: Text(
-          '暂无数据',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 14,
-          ),
-        ),
-      );
-    }
-
-    final List<FlSpot> spots = [];
-    var index = 0.0;
-    
-    _sleepData.forEach((date, duration) {
-      final hours = double.parse(_formatDuration(duration));
-      if (hours > 0) {
-        spots.add(FlSpot(index, hours));
-      }
-      index++;
-    });
-
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 2,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.white.withOpacity(0.1),
-              strokeWidth: 1,
-            );
-          },
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          topTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                if (value % 1 != 0) return const Text('');
-                final index = value.toInt();
-                if (index >= _sleepData.length) return const Text('');
-                
-                final date = DateTime.now().subtract(
-                  Duration(days: _sleepData.length - 1 - index),
-                );
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    DateFormat('dd').format(date),
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                    ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-          leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-              interval: 2,
-                        getTitlesWidget: (value, meta) {
-                return Text(
-                  value.toInt().toString(),
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                              ),
-                            );
-                        },
-                      ),
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-        minX: 0,
-        maxX: (_sleepData.length - 1).toDouble(),
-        minY: 0,
-        maxY: 12,
-                  lineBarsData: [
-                    LineChartBarData(
-            spots: spots,
-                      isCurved: true,
-                      color: Colors.white,
-                      barWidth: 2,
-                      isStrokeCapRound: true,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          return FlDotCirclePainter(
-                            radius: 4,
-                            color: Colors.white,
-                  strokeWidth: 1,
-                            strokeColor: Colors.white,
-                          );
-                        },
-                      ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: Colors.white.withOpacity(0.1),
-                      ),
-                    ),
-                  ],
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: Colors.white.withOpacity(0.8),
-            tooltipRoundedRadius: 8,
-            getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
-              return touchedBarSpots.map((barSpot) {
-                return LineTooltipItem(
-                  '${barSpot.y.toStringAsFixed(1)}小时',
-                  const TextStyle(
-                    color: Color(0xFF6B8EFF),
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              }).toList();
-            },
-          ),
-        ),
-      ),
-    );
+    ).animate().fadeIn(duration: 600.ms, delay: 200.ms);
   }
 
   Widget _buildSleepStagesCard() {
     if (_sleepData.isEmpty) return const SizedBox.shrink();
 
     // 获取最新的睡眠记录
-    final latestDate = _sleepData.keys.reduce((a, b) => a.compareTo(b) > 0 ? a : b);
+    final latestDate =
+        _sleepData.keys.reduce((a, b) => a.compareTo(b) > 0 ? a : b);
     final latestRecord = _sleepData[latestDate];
     if (latestRecord == null) return const SizedBox.shrink();
 
@@ -403,7 +529,7 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
 
     return GlassmorphicContainer(
       width: double.infinity,
-      height: 200,
+      height: 180,
       borderRadius: 20,
       blur: 20,
       alignment: Alignment.center,
@@ -496,14 +622,14 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
   Widget _buildDreamCard() {
     return GestureDetector(
       onTap: () {
-        if (_todaysDream != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DreamDiaryScreen(initialDreamId: _todaysDream!.id),
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DreamDiaryScreen(
+              initialDreamId: _todaysDream?.id,
             ),
-          );
-        }
+          ),
+        );
       },
       child: GlassmorphicContainer(
         width: double.infinity,
@@ -531,7 +657,7 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
         child: Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -556,228 +682,95 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 12),
                   if (_todaysDream == null)
-                    const Center(
-                      child: Text(
-                        '今天还没有记录梦境',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '还没有记录昨晚的梦境呢~',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: Text(
+                              '记录梦境不仅能帮助你更好地了解自己的内心世界,还能发现生活中被忽略的灵感哦！点击这里开始记录吧 ✨',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 14,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     )
                   else
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              _getMoodIcon(_todaysDream!.mood),
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _getMoodText(_todaysDream!.mood),
-                              style: const TextStyle(
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                _getMoodIcon(_todaysDream!.mood),
                                 color: Colors.white,
-                                fontSize: 14,
+                                size: 20,
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _todaysDream!.title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                              const SizedBox(width: 8),
+                              Text(
+                                _getMoodText(_todaysDream!.mood),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          Text(
+                            _todaysDream!.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: Text(
+                              _todaysDream!.content,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 14,
+                                height: 1.4,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                 ],
               ),
             ),
-            if (_todaysDream != null)
-              Positioned(
-                right: 16,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: Icon(
-                    Icons.arrow_forward_ios,
-                    color: Colors.white.withOpacity(0.7),
-                    size: 16,
-                  ),
+            Positioned(
+              right: 16,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.white.withOpacity(0.7),
+                  size: 16,
                 ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMoodAnalysis() {
-    if (_sleepData.isEmpty) return const SizedBox.shrink();
-
-    return FutureBuilder<List<SleepRecord>>(
-      future: SleepRecordService.instance.getAllRecords(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        // 获取最新记录
-        final latestRecord = snapshot.data!.reduce(
-          (a, b) => a.startTime.isAfter(b.startTime) ? a : b
-        );
-
-        return GlassmorphicContainer(
-          width: double.infinity,
-          height: 160,
-          borderRadius: 20,
-          blur: 20,
-          alignment: Alignment.center,
-          border: 2,
-          linearGradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withOpacity(0.1),
-              Colors.white.withOpacity(0.05),
-            ],
-          ),
-          borderGradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withOpacity(0.5),
-              Colors.white.withOpacity(0.2),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '睡眠质量',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildMoodIndicator('睡眠效率', latestRecord.sleepEfficiency, Icons.nightlight_round),
-                    _buildMoodIndicator(
-                      '深睡占比', 
-                      latestRecord.stageDurations['deep']?.toDouble() ?? 0 / latestRecord.duration.inSeconds,
-                      Icons.bedtime
-                    ),
-                    _buildMoodIndicator(
-                      'REM占比', 
-                      latestRecord.stageDurations['rem']?.toDouble() ?? 0 / latestRecord.duration.inSeconds,
-                      Icons.remove_red_eye
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMoodIndicator(String label, double value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white, size: 24),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '${(value * 100).round()}%',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAIAnalysis() {
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: 180,
-      borderRadius: 20,
-      blur: 20,
-      alignment: Alignment.center,
-      border: 2,
-      linearGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.1),
-          Colors.white.withOpacity(0.05),
-        ],
-      ),
-      borderGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.5),
-          Colors.white.withOpacity(0.2),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.psychology,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'AI 睡眠建议',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              '根据您最近的睡眠数据分析，建议：\n1. 尝试在22:30前入睡\n2. 保持规律的作息时间\n3. 睡前30分钟避免使用电子设备',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 14,
-                height: 1.5,
               ),
             ),
           ],
@@ -838,8 +831,8 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
   Widget _buildViewDetailsButton() {
     return GlassmorphicContainer(
       width: double.infinity,
-      height: 60,
-      borderRadius: 30,
+      height: 50,
+      borderRadius: 25,
       blur: 20,
       alignment: Alignment.center,
       border: 2,
@@ -870,25 +863,25 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
               ),
             ).then((_) => _loadSleepData());
           },
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(25),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
+            child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
+                Text(
                   '查看详细数据',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(width: 8),
-                const Icon(
+                SizedBox(width: 8),
+                Icon(
                   Icons.arrow_forward_ios,
                   color: Colors.white,
-                  size: 16,
+                  size: 14,
                 ),
               ],
             ),
@@ -923,4 +916,4 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
     }
     return '平静';
   }
-} 
+}

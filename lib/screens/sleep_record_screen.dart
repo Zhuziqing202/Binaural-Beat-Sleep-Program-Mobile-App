@@ -5,7 +5,8 @@ import '../models/sleep_record.dart';
 import 'package:intl/intl.dart';
 
 class SleepRecordScreen extends StatefulWidget {
-  const SleepRecordScreen({super.key});
+  final SleepRecord? record;
+  const SleepRecordScreen({super.key, this.record});
 
   @override
   State<SleepRecordScreen> createState() => _SleepRecordScreenState();
@@ -194,7 +195,8 @@ class _SleepRecordScreenState extends State<SleepRecordScreen> {
     );
   }
 
-  Widget _buildTimeRow(String label, TimeOfDay time, Function(TimeOfDay?) onTimeSelected) {
+  Widget _buildTimeRow(
+      String label, TimeOfDay time, Function(TimeOfDay?) onTimeSelected) {
     return InkWell(
       onTap: () async {
         final TimeOfDay? picked = await showTimePicker(

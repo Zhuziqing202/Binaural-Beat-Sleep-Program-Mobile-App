@@ -4,10 +4,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../services/audio_service.dart';
 import '../services/sleep_record_service.dart';
 import '../models/sleep_record.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../services/sleep_stage_service.dart';
-import 'package:intl/intl.dart';
 
 class SleepingScreen extends StatefulWidget {
   const SleepingScreen({super.key});
@@ -24,13 +22,16 @@ class _SleepingScreenState extends State<SleepingScreen> {
   DateTime _startTime = DateTime.now();
   Timer? _timer;
   Duration _elapsed = Duration.zero;
+  bool _isCustomMode = false; // 控制显示自定义模式还是计划模式
+  bool _isCustomExpanded = false; // 新增状态变量
 
   @override
   void initState() {
     super.initState();
     _startTimer();
-    _startSleepAudio();
     _startSleepMonitoring();
+    _audioService.setSleepStartTime(DateTime.now());
+    _audioService.startPresetCycle();
   }
 
   void _startTimer() {
@@ -39,12 +40,6 @@ class _SleepingScreenState extends State<SleepingScreen> {
         _elapsed = DateTime.now().difference(_startTime);
       });
     });
-  }
-
-  Future<void> _startSleepAudio() async {
-    // 默认使用预设周期模式开始
-    _selectedMode = 1;
-    await _audioService.startPresetCycle();
   }
 
   void _startSleepMonitoring() {
@@ -59,7 +54,7 @@ class _SleepingScreenState extends State<SleepingScreen> {
     // 获取睡眠阶段数据
     final stageDurations = _stageService.getStagesDuration();
     final metrics = _stageService.getSleepQualityMetrics();
-    
+
     // 创建睡眠记录
     final record = SleepRecord(
       startTime: _startTime,
@@ -77,7 +72,7 @@ class _SleepingScreenState extends State<SleepingScreen> {
 
     // 保存记录
     await SleepRecordService.instance.saveSleepRecord(record);
-    
+
     await _audioService.stopSound();
     if (mounted) {
       Navigator.pop(context, true);
@@ -101,6 +96,10 @@ class _SleepingScreenState extends State<SleepingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final standardFontSize = screenWidth * 0.045;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -111,378 +110,319 @@ class _SleepingScreenState extends State<SleepingScreen> {
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              _buildAppBar(context),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      const Spacer(),
-                      _buildTimeDisplay(),
-                      const SizedBox(height: 40),
-                      _buildModeSelector(),
-                      const SizedBox(height: 20),
-                      _buildVolumeControl(),
-                      const SizedBox(height: 40),
-                      _buildEndButton(),
-                      const Spacer(),
-                    ],
-                  ),
+          bottom: false,
+          child: SingleChildScrollView(
+            child: Container(
+              constraints: BoxConstraints(
+                minHeight: screenHeight - MediaQuery.of(context).padding.top,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    _buildAppBar(context, standardFontSize),
+                    SizedBox(height: screenHeight * 0.04),
+                    _buildTimeDisplay(standardFontSize),
+                    SizedBox(height: screenHeight * 0.06),
+                    _buildAudioControl(standardFontSize),
+                    SizedBox(height: screenHeight * 0.02),
+                    _buildVolumeControl(standardFontSize),
+                    SizedBox(height: screenHeight * 0.06),
+                    _buildEndButton(standardFontSize),
+                    SizedBox(height: screenHeight * 0.04),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const Text(
-            '睡眠中',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildTimeDisplay() {
-    return Column(
+  Widget _buildAppBar(BuildContext context, double standardFontSize) {
+    return Row(
       children: [
-        Text(
-          _formatDuration(_elapsed),
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 60,
-            fontWeight: FontWeight.bold,
-          ),
+        IconButton(
+          icon: Icon(Icons.arrow_back_ios,
+              color: Colors.white, size: standardFontSize),
+          onPressed: () => Navigator.pop(context),
         ),
-        const SizedBox(height: 10),
-        const Text(
-          '已入睡时长',
+        Text(
+          '睡眠中',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 16,
+            fontSize: standardFontSize * 1.2,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildModeSelector() {
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: 80,
-      borderRadius: 20,
-      blur: 20,
-      alignment: Alignment.center,
-      border: 2,
-      linearGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.1),
-          Colors.white.withOpacity(0.05),
-        ],
-      ),
-      borderGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.5),
-          Colors.white.withOpacity(0.2),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildModeButton(
-            '播放模式',
-            Icons.mode_rounded,
-            () {
-              showDialog(
-                context: context,
-                builder: (context) => Dialog(
-                  backgroundColor: Colors.transparent,
-                  child: GlassmorphicContainer(
-                    width: 280,
-                    height: 240,
-                    borderRadius: 20,
-                    blur: 20,
-                    alignment: Alignment.center,
-                    border: 2,
-                    linearGradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withOpacity(0.1),
-                        Colors.white.withOpacity(0.05),
-                      ],
-                    ),
-                    borderGradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withOpacity(0.5),
-                        Colors.white.withOpacity(0.2),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.all(15),
-                          child: Text(
-                            '选择播放模式',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const Divider(color: Colors.white24),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              children: [
-                                _buildModeOption('睡眠阶段同步', 0),
-                                _buildModeOption('预设睡眠周期', 1),
-                                _buildModeOption('自定义', 2),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
+  Widget _buildTimeDisplay(double standardFontSize) {
+    return Column(
+      children: [
+        Text(
+          _formatDuration(_elapsed),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: standardFontSize * 3,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
           ),
-          _buildModeButton(
-            '助眠音频',
-            Icons.music_note_rounded,
-            () {
-              showDialog(
-                context: context,
-                builder: (context) => Dialog(
-                  backgroundColor: Colors.transparent,
-                  child: GlassmorphicContainer(
-                    width: 280,
-                    height: 360,
-                    borderRadius: 20,
-                    blur: 20,
-                    alignment: Alignment.center,
-                    border: 2,
-                    linearGradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withOpacity(0.1),
-                        Colors.white.withOpacity(0.05),
-                      ],
-                    ),
-                    borderGradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withOpacity(0.5),
-                        Colors.white.withOpacity(0.2),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.all(15),
-                          child: Text(
-                            '选择助眠音效',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const Divider(color: Colors.white24),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              children: [
-                                _buildSoundOption('无', 'none', Icons.music_off),
-                                _buildSoundOption('海浪', 'ocean', Icons.waves),
-                                _buildSoundOption('雨声', 'rain', Icons.water_drop),
-                                _buildSoundOption('森林', 'forest', Icons.forest),
-                                _buildSoundOption('白噪音', 'white_noise', Icons.noise_aware),
-                                _buildSoundOption('溪流', 'stream', Icons.water),
-                                _buildSoundOption('篝火', 'fire', Icons.local_fire_department),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
+        ),
+        SizedBox(height: standardFontSize * 0.5),
+        Text(
+          '已入睡时长',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: standardFontSize * 0.9,
           ),
-        ],
-      ),
-    );
+        ),
+      ],
+    ).animate().fadeIn(duration: 600.ms);
   }
 
-  Widget _buildModeButton(String text, IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildModeOption(String text, int mode) {
-    final isSelected = _selectedMode == mode;
-    return Material(
-      color: Colors.transparent,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            onTap: () {
-              // 无论选择哪个模式，先停止当前播放
-              if (_audioService.isPlaying) {
-                _audioService.stopSound();
-              }
-              
-              setState(() {
-                _selectedMode = mode;
-                if (mode == 1) {
-                  // 预设睡眠周期模式
-                  _audioService.startPresetCycle();
-                  Navigator.pop(context);
-                } else if (mode == 0) {
-                  // 睡眠阶段同步模式 - 目前只停止播放
-                  Navigator.pop(context);
-                }
-                // 自定义模式(mode == 2)不关闭弹窗，只更新状态
-              });
-            },
-            leading: Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-              color: Colors.white,
-            ),
-            title: Text(
-              text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-              ),
-            ),
-            subtitle: mode == 1 ? Text(
-              '90分钟为一个周期，自动调整频率',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 12,
-              ),
-            ) : mode == 2 ? Text(
-              '选择单一音频循环播放',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 12,
-              ),
-            ) : null,
+  Widget _buildAudioControl(double standardFontSize) {
+    return Column(
+      children: [
+        // 睡眠计划卡片
+        GlassmorphicContainer(
+          width: double.infinity,
+          height: standardFontSize * 8,
+          borderRadius: 20,
+          blur: 20,
+          alignment: Alignment.center,
+          border: 2,
+          linearGradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withOpacity(0.1),
+              Colors.white.withOpacity(0.05),
+            ],
           ),
-          if (mode == 2)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          borderGradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withOpacity(0.5),
+              Colors.white.withOpacity(0.2),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildCustomModeButton('助眠', 'pink_noise_falling_asleep.wav', Icons.nightlight),
-                  _buildCustomModeButton('N1', 'pink_noise_n1.wav', Icons.waves),
-                  _buildCustomModeButton('N2', 'pink_noise_n2.wav', Icons.waves_outlined),
-                  _buildCustomModeButton('N3', 'pink_noise_n3.wav', Icons.water),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: standardFontSize),
+                    child: Text(
+                      '睡眠计划',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: standardFontSize,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ],
               ),
+              SizedBox(height: standardFontSize),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: standardFontSize * 2),
+                child: Text(
+                  '脑波同步技术通过特定频率的声波刺激，帮助大脑进入理想的睡眠状态。随着睡眠的深入，音频将自动调整以匹配您的睡眠周期。',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: standardFontSize * 0.7,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
+
+        SizedBox(height: standardFontSize),
+
+        // 自定义音频卡片
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          height:
+              _isCustomExpanded ? standardFontSize * 16 : standardFontSize * 4,
+          child: GlassmorphicContainer(
+            width: double.infinity,
+            height: _isCustomExpanded
+                ? standardFontSize * 16
+                : standardFontSize * 4,
+            borderRadius: 20,
+            blur: 20,
+            alignment: Alignment.center,
+            border: 2,
+            linearGradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.1),
+                Colors.white.withOpacity(0.05),
+              ],
             ),
-        ],
-      ),
+            borderGradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.5),
+                Colors.white.withOpacity(0.2),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: AnimatedCrossFade(
+                duration: const Duration(milliseconds: 300),
+                crossFadeState: _isCustomExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                firstChild: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: standardFontSize),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '自定义音频',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: standardFontSize,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Switch(
+                        value: _isCustomExpanded,
+                        onChanged: (value) async {
+                          setState(() {
+                            _isCustomExpanded = value;
+                          });
+                          await _audioService.stopSound();
+                          if (!value) {
+                            _audioService.setSleepStartTime(_startTime);
+                            await _audioService.startPresetCycle();
+                          }
+                        },
+                        activeColor: Colors.white,
+                        inactiveTrackColor: Colors.white.withOpacity(0.3),
+                      ),
+                    ],
+                  ),
+                ),
+                secondChild: Column(
+                  children: [
+                    Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: standardFontSize),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '自定义音频',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: standardFontSize,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Switch(
+                            value: _isCustomExpanded,
+                            onChanged: (value) async {
+                              setState(() {
+                                _isCustomExpanded = value;
+                              });
+                              await _audioService.stopSound();
+                              if (!value) {
+                                _audioService.setSleepStartTime(_startTime);
+                                await _audioService.startPresetCycle();
+                              }
+                            },
+                            activeColor: Colors.white,
+                            inactiveTrackColor: Colors.white.withOpacity(0.3),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: GridView.count(
+                        crossAxisCount: 3,
+                        padding: EdgeInsets.all(standardFontSize * 0.5),
+                        mainAxisSpacing: standardFontSize * 0.3,
+                        crossAxisSpacing: standardFontSize * 0.5,
+                        childAspectRatio: 1.5,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          _buildAudioButton(
+                              '助眠',
+                              'pink_noise_falling_asleep.wav',
+                              Icons.nightlight),
+                          _buildAudioButton(
+                              'N1', 'pink_noise_n1.wav', Icons.waves),
+                          _buildAudioButton(
+                              'N2', 'pink_noise_n2.wav', Icons.waves_outlined),
+                          _buildAudioButton(
+                              'N3', 'pink_noise_n3.wav', Icons.water),
+                          _buildAudioButton(
+                              '海浪', 'ocean.mp3', Icons.beach_access),
+                          _buildAudioButton('雨声', 'rain.mp3', Icons.water_drop),
+                          _buildAudioButton(
+                              '白噪音', 'white_noise.mp3', Icons.noise_aware),
+                          _buildAudioButton('自然', 'nature.mp3', Icons.forest),
+                          _buildAudioButton(
+                              '篝火', 'fire.mp3', Icons.local_fire_department),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
+      ],
     );
   }
 
-  Widget _buildCustomModeButton(String label, String soundName, IconData icon) {
-    final isPlaying = _audioService.isCustomMode && 
-                     _audioService.isPlaying && 
-                     _audioService.currentSound == '$soundName.mp3';
-    
+  Widget _buildAudioButton(String label, String audioPath, IconData icon) {
+    final bool isPlaying = _audioService.isCustomMode &&
+        _audioService.isPlaying &&
+        _audioService.currentSound == audioPath;
+
     return GestureDetector(
-      onTap: () {
-        // 如果有任何音频在播放，先停止
-        if (_audioService.isPlaying) {
-          _audioService.stopSound();
+      onTap: () async {
+        if (_isCustomExpanded) {
+          await _audioService.startCustomMode(audioPath);
         }
-        // 开始播放新选择的音频（不使用淡入效果）
-        _audioService.startCustomMode(soundName, useInitialFade: false);
-        setState(() {
-          _selectedMode = 2; // 设置为自定义模式
-        });
-        // 播放开始后关闭弹窗
-        Navigator.pop(context);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isPlaying ? Colors.white.withOpacity(0.3) : Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(15),
+          color: isPlaying
+              ? Colors.white.withOpacity(0.3)
+              : Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isPlaying ? Colors.white : Colors.white.withOpacity(0.3),
+            color: Colors.white.withOpacity(isPlaying ? 0.5 : 0.2),
             width: 1,
           ),
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isPlaying ? Icons.pause : icon,
               color: Colors.white,
-              size: 20,
+              size: 22,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
@@ -490,6 +430,7 @@ class _SleepingScreenState extends State<SleepingScreen> {
                 fontSize: 12,
                 fontWeight: isPlaying ? FontWeight.bold : FontWeight.normal,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -497,43 +438,10 @@ class _SleepingScreenState extends State<SleepingScreen> {
     );
   }
 
-  Widget _buildSoundOption(String text, String soundName, IconData icon) {
-    final isPlaying = _audioService.isCustomMode && 
-                     _audioService.isPlaying && 
-                     _audioService.currentSound == '$soundName.mp3';
-    
-    return Material(
-      color: Colors.transparent,
-      child: ListTile(
-        onTap: () {
-          if (soundName == 'none') {
-            _audioService.stopSound();
-          } else {
-            _audioService.playSound('$soundName.mp3');
-          }
-          Navigator.pop(context);
-        },
-        leading: Icon(icon, color: Colors.white),
-        title: Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-          ),
-        ),
-        trailing: isPlaying ? const Icon(
-          Icons.volume_up,
-          color: Colors.white,
-          size: 20,
-        ) : null,
-      ),
-    );
-  }
-
-  Widget _buildVolumeControl() {
+  Widget _buildVolumeControl(double standardFontSize) {
     return GlassmorphicContainer(
       width: double.infinity,
-      height: 80,
+      height: standardFontSize * 5,
       borderRadius: 20,
       blur: 20,
       alignment: Alignment.center,
@@ -559,28 +467,39 @@ class _SleepingScreenState extends State<SleepingScreen> {
         children: [
           Text(
             '音量: ${(_volume * 100).toInt()}%',
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
-              fontSize: 14,
+              fontSize: standardFontSize * 0.8,
             ),
           ),
-          Slider(
-            value: _volume,
-            min: 0.0,
-            max: 1.0,
-            activeColor: Colors.white,
-            inactiveColor: Colors.white.withOpacity(0.3),
-            onChanged: (value) {
-              setState(() => _volume = value);
-              _audioService.setVolume(value);
-            },
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 2.0,
+              thumbShape: RoundSliderThumbShape(
+                enabledThumbRadius: standardFontSize * 0.3,
+              ),
+              overlayShape: RoundSliderOverlayShape(
+                overlayRadius: standardFontSize * 0.6,
+              ),
+            ),
+            child: Slider(
+              value: _volume,
+              min: 0.0,
+              max: 1.0,
+              activeColor: Colors.white,
+              inactiveColor: Colors.white.withOpacity(0.3),
+              onChanged: (value) {
+                setState(() => _volume = value);
+                _audioService.setVolume(value);
+              },
+            ),
           ),
         ],
       ),
-    );
+    ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0);
   }
 
-  Widget _buildEndButton() {
+  Widget _buildEndButton(double standardFontSize) {
     return GestureDetector(
       onTap: () {
         showDialog(
@@ -588,8 +507,8 @@ class _SleepingScreenState extends State<SleepingScreen> {
           builder: (context) => Dialog(
             backgroundColor: Colors.transparent,
             child: GlassmorphicContainer(
-              width: 280,
-              height: 180,
+              width: standardFontSize * 15,
+              height: standardFontSize * 10,
               borderRadius: 20,
               blur: 20,
               alignment: Alignment.center,
@@ -613,29 +532,29 @@ class _SleepingScreenState extends State<SleepingScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.all(20),
+                  Padding(
+                    padding: EdgeInsets.all(standardFontSize),
                     child: Text(
                       '确认结束睡眠',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: standardFontSize,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: standardFontSize),
                     child: Text(
                       '确定要结束本次睡眠记录吗？',
                       style: TextStyle(
                         color: Colors.white70,
-                        fontSize: 14,
+                        fontSize: standardFontSize * 0.8,
                       ),
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: standardFontSize),
                   const Divider(color: Colors.white24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -646,13 +565,13 @@ class _SleepingScreenState extends State<SleepingScreen> {
                           '取消',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.8),
-                            fontSize: 16,
+                            fontSize: standardFontSize * 0.8,
                           ),
                         ),
                       ),
                       Container(
                         width: 1,
-                        height: 20,
+                        height: standardFontSize,
                         color: Colors.white24,
                       ),
                       TextButton(
@@ -660,11 +579,11 @@ class _SleepingScreenState extends State<SleepingScreen> {
                           Navigator.pop(context);
                           _stopSleepMonitoring();
                         },
-                        child: const Text(
+                        child: Text(
                           '确定',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 16,
+                            fontSize: standardFontSize * 0.8,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -680,8 +599,8 @@ class _SleepingScreenState extends State<SleepingScreen> {
       child: Column(
         children: [
           Container(
-            width: 80,
-            height: 80,
+            width: standardFontSize * 4,
+            height: standardFontSize * 4,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white.withOpacity(0.2),
@@ -697,25 +616,27 @@ class _SleepingScreenState extends State<SleepingScreen> {
                 ),
               ],
             ),
-            child: const Icon(
+            child: Icon(
               Icons.stop_rounded,
               color: Colors.white,
-              size: 40,
+              size: standardFontSize * 2,
             ),
-          ).animate(
-            onPlay: (controller) => controller.repeat(reverse: true),
-          ).scale(
-            duration: 2.seconds,
-            begin: const Offset(1, 1),
-            end: const Offset(1.1, 1.1),
-            curve: Curves.easeInOut,
-          ),
-          const SizedBox(height: 10),
-          const Text(
+          )
+              .animate(
+                onPlay: (controller) => controller.repeat(reverse: true),
+              )
+              .scale(
+                duration: 2.seconds,
+                begin: const Offset(1, 1),
+                end: const Offset(1.1, 1.1),
+                curve: Curves.easeInOut,
+              ),
+          SizedBox(height: standardFontSize * 0.5),
+          Text(
             '结束睡眠',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 16,
+              fontSize: standardFontSize * 0.8,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -723,4 +644,108 @@ class _SleepingScreenState extends State<SleepingScreen> {
       ),
     );
   }
-} 
+
+  Widget _buildSleepPlanStatus(double standardFontSize) {
+    final currentPhase = _getCurrentSleepPhase();
+    final phaseIcon = _getSleepPhaseIcon(currentPhase);
+    final phaseName = _getSleepPhaseName(currentPhase);
+
+    return Container(
+      padding: EdgeInsets.all(standardFontSize),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: standardFontSize * 4,
+            height: standardFontSize * 4,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.2),
+              border: Border.all(
+                color: Colors.white,
+                width: 1,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  phaseIcon,
+                  color: Colors.white,
+                  size: standardFontSize * 1.5,
+                ),
+                SizedBox(height: standardFontSize * 0.3),
+                Text(
+                  phaseName,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: standardFontSize * 0.7,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          )
+              .animate(
+                onPlay: (controller) => controller.repeat(reverse: true),
+              )
+              .scale(
+                duration: 3.seconds,
+                begin: const Offset(1, 1),
+                end: const Offset(1.05, 1.05),
+                curve: Curves.easeInOut,
+              ),
+        ],
+      ),
+    );
+  }
+
+  String _getCurrentSleepPhase() {
+    final elapsedMinutes = _elapsed.inMinutes;
+    final currentCycle = (elapsedMinutes ~/ 90);
+    final phaseInCycle = ((elapsedMinutes % 90) ~/ 22.5).toInt();
+
+    switch (phaseInCycle) {
+      case 0:
+        return 'N1';
+      case 1:
+        return 'N2';
+      case 2:
+        return 'N3';
+      case 3:
+        return 'REM';
+      default:
+        return 'N1';
+    }
+  }
+
+  IconData _getSleepPhaseIcon(String phase) {
+    switch (phase) {
+      case 'N1':
+        return Icons.waves;
+      case 'N2':
+        return Icons.waves_outlined;
+      case 'N3':
+        return Icons.water;
+      case 'REM':
+        return Icons.remove_red_eye;
+      default:
+        return Icons.waves;
+    }
+  }
+
+  String _getSleepPhaseName(String phase) {
+    switch (phase) {
+      case 'N1':
+        return '浅睡期';
+      case 'N2':
+        return '中睡期';
+      case 'N3':
+        return '深睡期';
+      case 'REM':
+        return '快速眼动';
+      default:
+        return '浅睡期';
+    }
+  }
+}

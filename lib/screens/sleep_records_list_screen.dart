@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:glassmorphism/glassmorphism.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import '../models/sleep_record.dart';
 import '../services/sleep_record_service.dart';
+import 'sleep_record_screen.dart';
 
 class SleepRecordsListScreen extends StatefulWidget {
   const SleepRecordsListScreen({super.key});
@@ -12,7 +14,7 @@ class SleepRecordsListScreen extends StatefulWidget {
 }
 
 class _SleepRecordsListScreenState extends State<SleepRecordsListScreen> {
-  final SleepRecordService _sleepRecordService = SleepRecordService.instance;
+  final _sleepRecordService = SleepRecordService.instance;
   List<SleepRecord> _records = [];
   bool _isLoading = true;
 
@@ -25,24 +27,10 @@ class _SleepRecordsListScreenState extends State<SleepRecordsListScreen> {
   Future<void> _loadRecords() async {
     setState(() => _isLoading = true);
     final records = await _sleepRecordService.getAllRecords();
-    records.sort((a, b) => b.startTime.compareTo(a.startTime)); // 按日期降序排序
     setState(() {
       _records = records;
       _isLoading = false;
     });
-  }
-
-  Future<void> _deleteRecord(SleepRecord record) async {
-    final records = await _sleepRecordService.getAllRecords();
-    records.removeWhere((r) => 
-      r.startTime == record.startTime && 
-      r.endTime == record.endTime
-    );
-    await _sleepRecordService.clearAllRecords();
-    for (var r in records) {
-      await _sleepRecordService.saveSleepRecord(r);
-    }
-    await _loadRecords();
   }
 
   @override
@@ -59,53 +47,17 @@ class _SleepRecordsListScreenState extends State<SleepRecordsListScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              _buildAppBar(context),
-              Expanded(
-                child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : _records.isEmpty
-                        ? const Center(
-                            child: Text(
-                              '暂无睡眠记录',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(20),
-                            itemCount: _records.length,
-                            itemBuilder: (context, index) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 15),
-                                child: _buildSleepRecordCard(_records[index]),
-                              );
-                            },
-                          ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
+              Padding(
+                padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                      icon:
+                          const Icon(Icons.arrow_back_ios, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
           const Text(
-            '睡眠记录',
+                      '睡眠日记',
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -114,129 +66,80 @@ class _SleepRecordsListScreenState extends State<SleepRecordsListScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSleepRecordCard(SleepRecord record) {
-    final startTimeStr = DateFormat('HH:mm').format(record.startTime);
-    final endTimeStr = DateFormat('HH:mm').format(record.endTime);
-    final dateStr = DateFormat('yyyy年MM月dd日').format(record.startTime);
-    final hours = record.duration.inHours;
-    final minutes = record.duration.inMinutes.remainder(60);
-
-    return Dismissible(
-      key: Key('${record.startTime}-${record.endTime}'),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Icon(
-          Icons.delete_outline,
-          color: Colors.white,
-          size: 30,
-        ),
-      ),
-      onDismissed: (direction) => _deleteRecord(record),
-      confirmDismiss: (direction) async {
-        return await showDialog(
-          context: context,
-          builder: (context) => Dialog(
-            backgroundColor: Colors.transparent,
-            child: GlassmorphicContainer(
-              width: 280,
-              height: 180,
-              borderRadius: 20,
-              blur: 20,
-              alignment: Alignment.center,
-              border: 2,
-              linearGradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.1),
-                  Colors.white.withOpacity(0.05),
-                ],
               ),
-              borderGradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.5),
-                  Colors.white.withOpacity(0.2),
-                ],
+              if (_isLoading)
+                const Expanded(
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.all(20),
+                )
+              else if (_records.isEmpty)
+                Expanded(
+                  child: Center(
                     child: Text(
-                      '确认删除',
+                      '暂无睡眠记录',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 16,
                       ),
                     ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      '确定要删除这条睡眠记录吗？\n删除后无法恢复。',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(color: Colors.white24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: Text(
-                          '取消',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 20,
-                        color: Colors.white24,
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text(
-                          '删除',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                )
+              else
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _records.length,
+                    itemBuilder: (context, index) {
+                      final record = _records[index];
+                      return _buildRecordCard(record);
+                    },
                         ),
                       ),
                     ],
                   ),
-                ],
+        ),
               ),
-            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SleepRecordScreen(),
           ),
         );
+          _loadRecords();
+        },
+        backgroundColor: Colors.white.withOpacity(0.2),
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildRecordCard(SleepRecord record) {
+    final startTime = DateFormat('MM/dd HH:mm').format(record.startTime);
+    final endTime = DateFormat('MM/dd HH:mm').format(record.endTime);
+    final duration = record.duration;
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SleepRecordScreen(record: record),
+            ),
+          ).then((_) => _loadRecords());
       },
       child: GlassmorphicContainer(
         width: double.infinity,
         height: 120,
-        borderRadius: 20,
+          borderRadius: 15,
         blur: 20,
         alignment: Alignment.center,
         border: 2,
@@ -257,16 +160,15 @@ class _SleepRecordsListScreenState extends State<SleepRecordsListScreen> {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    dateStr,
+                      '睡眠时长：${hours}小时${minutes}分钟',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -280,10 +182,10 @@ class _SleepRecordsListScreenState extends State<SleepRecordsListScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      '$hours小时$minutes分钟',
+                        '${(record.sleepEfficiency * 100).toStringAsFixed(0)}%',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -292,27 +194,27 @@ class _SleepRecordsListScreenState extends State<SleepRecordsListScreen> {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.bedtime,
-                    color: Colors.white70,
-                    size: 20,
+                const SizedBox(height: 8),
+                Text(
+                  '开始时间：$startTime',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 14,
                   ),
-                  const SizedBox(width: 8),
+                  ),
+                const SizedBox(height: 4),
                   Text(
-                    '$startTimeStr → $endTimeStr',
-                    style: const TextStyle(
-                      color: Colors.white70,
+                  '结束时间：$endTime',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
                       fontSize: 14,
                     ),
                   ),
                 ],
               ),
-            ],
           ),
         ),
       ),
-    );
+    ).animate().fadeIn(duration: 600.ms);
   }
 } 

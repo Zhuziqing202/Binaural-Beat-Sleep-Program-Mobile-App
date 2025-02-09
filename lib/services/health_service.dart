@@ -1,6 +1,3 @@
-import 'dart:io' show Platform;
-import 'package:permission_handler/permission_handler.dart';
-
 class HealthService {
   static final HealthService instance = HealthService._init();
 
@@ -8,15 +5,7 @@ class HealthService {
 
   Future<bool> requestPermissions() async {
     // Android 平台暂不支持健康数据
-    if (Platform.isAndroid) {
-      return false;
-    }
-
-    // 请求健康数据权限
-    final permissionStatus = await Permission.activityRecognition.request();
-    if (permissionStatus.isDenied) return false;
-
-    return true;
+    return false;
   }
 
   Future<Map<String, dynamic>> getSleepData(DateTime date) async {
@@ -35,4 +24,4 @@ class HealthService {
     // Android 平台返回 false
     return false;
   }
-} 
+}
