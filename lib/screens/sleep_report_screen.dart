@@ -54,10 +54,11 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
     if (records.isNotEmpty) {
       // 获取昨天的日期范围（18:00到今天12:00）
       final now = DateTime.now();
-      final yesterday = now.subtract(const Duration(days: 1));
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
       final startTime =
           DateTime(yesterday.year, yesterday.month, yesterday.day, 18);
-      final endTime = DateTime(now.year, now.month, now.day, 12);
+      final endTime = DateTime(today.year, today.month, today.day, 12);
 
       // 筛选这个时间范围内的睡眠记录
       final yesterdaySleepRecords = records.where((record) {
@@ -161,8 +162,6 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
                         _buildSleepChart(),
                         const SizedBox(height: 10),
                         _buildViewDetailsButton(),
-                        const SizedBox(height: 10),
-                        _buildSleepStagesCard(),
                         const SizedBox(height: 10),
                         _buildDreamCard(),
                         const SizedBox(height: 90),
@@ -397,13 +396,17 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
                   // 为每一天计算睡眠时长
                   final spots = dates.asMap().entries.map((entry) {
                     final date = entry.value;
+                    // 修改日期范围计算：当天18:00到次日12:00
                     final dayStart =
                         DateTime(date.year, date.month, date.day, 18);
                     final dayEnd = date.add(const Duration(days: 1, hours: 12));
 
+                    // 只统计在这个时间范围内开始的睡眠记录
                     final dayRecords = snapshot.data!.where((record) {
                       return record.startTime.isAfter(dayStart) &&
-                          record.startTime.isBefore(dayEnd);
+                          record.startTime.isBefore(dayEnd) &&
+                          record.date ==
+                              SleepRecord.getDateString(date); // 确保日期匹配
                     }).toList();
 
                     double sleepHours = 0;

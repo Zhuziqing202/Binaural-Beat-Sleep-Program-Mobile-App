@@ -81,7 +81,8 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
   @override
   void dispose() {
     _breathingTimer?.cancel();
-    _audioService.stopSound();
+    _audioService.stopPresetSound();
+    _audioService.stopCustomSound();
     super.dispose();
   }
 
@@ -512,7 +513,7 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
   Widget _buildPreparationSteps() {
     return GlassmorphicContainer(
       width: double.infinity,
-      height: 280,
+      height: 300,
       borderRadius: 15,
       blur: 20,
       alignment: Alignment.center,
@@ -556,21 +557,25 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
                     '深呼吸5-10分钟，让身体和心灵都放松下来',
                     Icons.spa,
                   ),
+                  const SizedBox(height: 12),
                   _buildPreparationItem(
                     '2. 调整光线',
                     '调暗房间灯光，营造舒适的睡眠环境',
                     Icons.wb_sunny,
                   ),
+                  const SizedBox(height: 12),
                   _buildPreparationItem(
                     '3. 远离电子设备',
                     '睡前一小时避免使用手机等电子设备',
                     Icons.phone_android,
                   ),
+                  const SizedBox(height: 12),
                   _buildPreparationItem(
                     '4. 温度调节',
                     '保持房间温度在18-22度之间',
                     Icons.thermostat,
                   ),
+                  const SizedBox(height: 12),
                   _buildPreparationItem(
                     '5. 穿着舒适',
                     '选择宽松、透气的睡衣',
@@ -587,48 +592,48 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
 
   Widget _buildPreparationItem(
       String title, String description, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 16,
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  description,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 16,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

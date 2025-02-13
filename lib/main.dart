@@ -2,14 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pink_sleep/app.dart';
 import 'package:pink_sleep/services/settings_service.dart';
+import 'package:pink_sleep/services/audio_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化服务
-  await SettingsService.instance.init();
-
-  runApp(const MyApp());
+  try {
+    // 初始化服务
+    await SettingsService.instance.init();
+    
+    // 最后初始化音频服务
+    await AudioService.instance.initializePlayer();
+    
+    runApp(const MyApp());
+  } catch (e) {
+    debugPrint('应用初始化失败: $e');
+    rethrow;
+  }
 }
 
 class MyApp extends StatelessWidget {

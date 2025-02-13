@@ -26,8 +26,9 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   @override
   void initState() {
     super.initState();
-    _isPlaying = _audioService.isPlaying && _audioService.currentSound == widget.soundName;
-    _volume = _audioService.volume;
+    _isPlaying = _audioService.isCustomPlaying &&
+        _audioService.currentCustomSound == widget.soundName;
+    _volume = _audioService.customVolume;
   }
 
   @override
@@ -74,7 +75,9 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                 const Spacer(),
                 IconButton(
                   icon: Icon(
-                    _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
+                    _isPlaying
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_fill,
                     color: Colors.white,
                     size: 32,
                   ),
@@ -105,19 +108,19 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
 
   void _togglePlay() async {
     if (_isPlaying) {
-      await _audioService.pauseSound();
+      await _audioService.pauseCustomSound();
     } else {
-      await _audioService.playSound(widget.soundName);
+      await _audioService.playCustomSound(widget.soundName);
     }
     setState(() {
-      _isPlaying = _audioService.isPlaying;
+      _isPlaying = _audioService.isCustomPlaying;
     });
   }
 
   void _updateVolume(double value) async {
-    await _audioService.setVolume(value);
+    await _audioService.setCustomVolume(value);
     setState(() {
       _volume = value;
     });
   }
-} 
+}

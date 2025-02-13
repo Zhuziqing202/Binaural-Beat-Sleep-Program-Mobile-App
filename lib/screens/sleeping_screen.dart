@@ -22,8 +22,8 @@ class _SleepingScreenState extends State<SleepingScreen> {
   DateTime _startTime = DateTime.now();
   Timer? _timer;
   Duration _elapsed = Duration.zero;
-  bool _isCustomMode = false; // 控制显示自定义模式还是计划模式
-  bool _isCustomExpanded = false; // 新增状态变量
+  bool _isCustomMode = false;
+  bool _isCustomExpanded = false;
 
   @override
   void initState() {
@@ -73,7 +73,8 @@ class _SleepingScreenState extends State<SleepingScreen> {
     // 保存记录
     await SleepRecordService.instance.saveSleepRecord(record);
 
-    await _audioService.stopSound();
+    await _audioService.stopPresetSound();
+    await _audioService.stopCustomSound();
     if (mounted) {
       Navigator.pop(context, true);
     }
@@ -90,7 +91,8 @@ class _SleepingScreenState extends State<SleepingScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    _audioService.stopSound();
+    _audioService.stopPresetSound();
+    _audioService.stopCustomSound();
     super.dispose();
   }
 
@@ -214,12 +216,12 @@ class _SleepingScreenState extends State<SleepingScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: standardFontSize),
-                    child: Text(
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: standardFontSize),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
                       '睡眠计划',
                       style: TextStyle(
                         color: Colors.white,
@@ -227,8 +229,21 @@ class _SleepingScreenState extends State<SleepingScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                ],
+                    Switch(
+                      value: _audioService.isPresetMode,
+                      onChanged: (value) {
+                        if (value) {
+                          _audioService.startPresetCycle();
+                        } else {
+                          _audioService.stopPresetSound();
+                        }
+                        setState(() {});
+                      },
+                      activeColor: Colors.white,
+                      inactiveTrackColor: Colors.white.withOpacity(0.3),
+                    ),
+                  ],
+                ),
               ),
               SizedBox(height: standardFontSize),
               Padding(
@@ -253,11 +268,11 @@ class _SleepingScreenState extends State<SleepingScreen> {
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           height:
-              _isCustomExpanded ? standardFontSize * 16 : standardFontSize * 4,
+              _isCustomExpanded ? standardFontSize * 12 : standardFontSize * 4,
           child: GlassmorphicContainer(
             width: double.infinity,
             height: _isCustomExpanded
-                ? standardFontSize * 16
+                ? standardFontSize * 12
                 : standardFontSize * 4,
             borderRadius: 20,
             blur: 20,
@@ -301,15 +316,10 @@ class _SleepingScreenState extends State<SleepingScreen> {
                       ),
                       Switch(
                         value: _isCustomExpanded,
-                        onChanged: (value) async {
+                        onChanged: (value) {
                           setState(() {
                             _isCustomExpanded = value;
                           });
-                          await _audioService.stopSound();
-                          if (!value) {
-                            _audioService.setSleepStartTime(_startTime);
-                            await _audioService.startPresetCycle();
-                          }
                         },
                         activeColor: Colors.white,
                         inactiveTrackColor: Colors.white.withOpacity(0.3),
@@ -335,15 +345,10 @@ class _SleepingScreenState extends State<SleepingScreen> {
                           ),
                           Switch(
                             value: _isCustomExpanded,
-                            onChanged: (value) async {
+                            onChanged: (value) {
                               setState(() {
                                 _isCustomExpanded = value;
                               });
-                              await _audioService.stopSound();
-                              if (!value) {
-                                _audioService.setSleepStartTime(_startTime);
-                                await _audioService.startPresetCycle();
-                              }
                             },
                             activeColor: Colors.white,
                             inactiveTrackColor: Colors.white.withOpacity(0.3),
@@ -355,27 +360,17 @@ class _SleepingScreenState extends State<SleepingScreen> {
                       child: GridView.count(
                         crossAxisCount: 3,
                         padding: EdgeInsets.all(standardFontSize * 0.5),
-                        mainAxisSpacing: standardFontSize * 0.3,
-                        crossAxisSpacing: standardFontSize * 0.5,
+                        mainAxisSpacing: standardFontSize * 0.2,
+                        crossAxisSpacing: standardFontSize * 0.2,
                         childAspectRatio: 1.5,
                         physics: const NeverScrollableScrollPhysics(),
                         children: [
-                          _buildAudioButton(
-                              '助眠',
-                              'pink_noise_falling_asleep.wav',
-                              Icons.nightlight),
-                          _buildAudioButton(
-                              'N1', 'pink_noise_n1.wav', Icons.waves),
-                          _buildAudioButton(
-                              'N2', 'pink_noise_n2.wav', Icons.waves_outlined),
-                          _buildAudioButton(
-                              'N3', 'pink_noise_n3.wav', Icons.water),
-                          _buildAudioButton(
-                              '海浪', 'ocean.mp3', Icons.beach_access),
+                          _buildAudioButton('海浪声', 'ocean.mp3', Icons.waves),
                           _buildAudioButton('雨声', 'rain.mp3', Icons.water_drop),
                           _buildAudioButton(
                               '白噪音', 'white_noise.mp3', Icons.noise_aware),
-                          _buildAudioButton('自然', 'nature.mp3', Icons.forest),
+                          _buildAudioButton('森林', 'forest.mp3', Icons.forest),
+                          _buildAudioButton('溪流', 'stream.mp3', Icons.water),
                           _buildAudioButton(
                               '篝火', 'fire.mp3', Icons.local_fire_department),
                         ],
@@ -392,16 +387,11 @@ class _SleepingScreenState extends State<SleepingScreen> {
   }
 
   Widget _buildAudioButton(String label, String audioPath, IconData icon) {
-    final bool isPlaying = _audioService.isCustomMode &&
-        _audioService.isPlaying &&
-        _audioService.currentSound == audioPath;
+    final bool isPlaying = _audioService.isCustomPlaying &&
+        _audioService.currentCustomSound == audioPath;
 
     return GestureDetector(
-      onTap: () async {
-        if (_isCustomExpanded) {
-          await _audioService.startCustomMode(audioPath);
-        }
-      },
+      onTap: () => _toggleCustomSound(audioPath),
       child: Container(
         decoration: BoxDecoration(
           color: isPlaying
@@ -465,38 +455,68 @@ class _SleepingScreenState extends State<SleepingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            '音量: ${(_volume * 100).toInt()}%',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: standardFontSize * 0.8,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                const Icon(Icons.music_note, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '音量控制',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: standardFontSize * 0.8,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '音量控制切换',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: standardFontSize * 0.7,
+                  ),
+                ),
+                Switch(
+                  value: _isCustomMode,
+                  onChanged: (value) {
+                    setState(() {
+                      _isCustomMode = value;
+                    });
+                  },
+                  activeColor: Colors.white,
+                  inactiveTrackColor: Colors.white.withOpacity(0.3),
+                ),
+              ],
             ),
           ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 2.0,
-              thumbShape: RoundSliderThumbShape(
-                enabledThumbRadius: standardFontSize * 0.3,
+          Row(
+            children: [
+              const SizedBox(width: 20),
+              const Icon(Icons.volume_down, color: Colors.white, size: 20),
+              Expanded(
+                child: Slider(
+                  value: _isCustomMode
+                      ? _audioService.customVolume
+                      : _audioService.presetVolume,
+                  onChanged: (value) {
+                    if (_isCustomMode) {
+                      _audioService.setCustomVolume(value);
+                    } else {
+                      _audioService.setPresetVolume(value);
+                    }
+                    setState(() {});
+                  },
+                  activeColor: Colors.white,
+                  inactiveColor: Colors.white.withOpacity(0.3),
+                ),
               ),
-              overlayShape: RoundSliderOverlayShape(
-                overlayRadius: standardFontSize * 0.6,
-              ),
-            ),
-            child: Slider(
-              value: _volume,
-              min: 0.0,
-              max: 1.0,
-              activeColor: Colors.white,
-              inactiveColor: Colors.white.withOpacity(0.3),
-              onChanged: (value) {
-                setState(() => _volume = value);
-                _audioService.setVolume(value);
-              },
-            ),
+              const Icon(Icons.volume_up, color: Colors.white, size: 20),
+              const SizedBox(width: 20),
+            ],
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0);
+    );
   }
 
   Widget _buildEndButton(double standardFontSize) {
@@ -747,5 +767,15 @@ class _SleepingScreenState extends State<SleepingScreen> {
       default:
         return '浅睡期';
     }
+  }
+
+  void _toggleCustomSound(String audioPath) async {
+    if (_audioService.isCustomPlaying &&
+        _audioService.currentCustomSound == audioPath) {
+      await _audioService.stopCustomSound();
+    } else {
+      await _audioService.playCustomSound(audioPath);
+    }
+    setState(() {});
   }
 }

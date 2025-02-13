@@ -78,6 +78,12 @@ flutter:
     - assets/audio/pink_noise_n1.mp3
     - assets/audio/pink_noise_n2.mp3
     - assets/audio/pink_noise_n3.mp3
+    - assets/audio/ocean.mp3
+    - assets/audio/rain.mp3
+    - assets/audio/white_noise.mp3
+    - assets/audio/forest.mp3
+    - assets/audio/stream.mp3
+    - assets/audio/fire.mp3
     - assets/audio/
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -107,6 +113,12 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
 flutter_launcher_icons:
-  android: "ic_launcher"
-  image_path: "assets/images/launcher.jpeg"
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.jpg"
+  remove_alpha_ios: true
+  image_path_ios: "assets/images/app_icon.jpg"
   min_sdk_android: 21
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/app_icon.jpg"
+  ios_content_mode: "scaleAspectFit"
