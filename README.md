@@ -1,4 +1,4 @@
-# pink_sleep — Your AI Sleep Health Assistant
+# Pink Sleep — Your AI Sleep Health Assistant
 
 # Project Overview:
 Powder Sleep is an innovative AI-driven sleep health app designed to improve sleep quality using powder noise, AI sleep recommendations, and insomnia diagnostics. It customizes sleep plans to help users understand and optimize their sleep cycles for better rest and recovery.
