@@ -11,6 +11,9 @@ import 'dream_diary_screen.dart';
 import 'sleep_record_screen.dart';
 import 'sleep_records_list_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'insomnia_assistant_screen.dart';
+import 'isi_questionnaire_screen.dart';
+import 'gad7_questionnaire_screen.dart';
 
 class SleepReportScreen extends StatefulWidget {
   const SleepReportScreen({super.key});
@@ -164,6 +167,10 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
                         _buildViewDetailsButton(),
                         const SizedBox(height: 10),
                         _buildDreamCard(),
+                        const SizedBox(height: 10),
+                        _buildInsomniaAssistantCard(context)
+                            .animate()
+                            .fadeIn(duration: 600.ms, delay: 500.ms),
                         const SizedBox(height: 90),
                       ],
                     ),
@@ -774,6 +781,99 @@ class _SleepReportScreenState extends State<SleepReportScreen> {
                   color: Colors.white.withOpacity(0.7),
                   size: 16,
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInsomniaAssistantCard(BuildContext context) {
+    return GlassmorphicContainer(
+      width: double.infinity,
+      height: 160,
+      borderRadius: 20,
+      blur: 20,
+      alignment: Alignment.center,
+      border: 2,
+      linearGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.1),
+          Colors.white.withOpacity(0.05),
+        ],
+      ),
+      borderGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.5),
+          Colors.white.withOpacity(0.2),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.help_outline,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  '失眠助手',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '请不要过于紧张，点击下面的按钮可以获得更专业的失眠评估。',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 14,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ISIQuestionnaireScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('ISI问卷'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const GAD7QuestionnaireScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('GAD-7问卷'),
+                  ),
+                ],
               ),
             ),
           ],

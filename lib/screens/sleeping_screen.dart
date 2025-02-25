@@ -316,11 +316,7 @@ class _SleepingScreenState extends State<SleepingScreen> {
                       ),
                       Switch(
                         value: _isCustomExpanded,
-                        onChanged: (value) {
-                          setState(() {
-                            _isCustomExpanded = value;
-                          });
-                        },
+                        onChanged: _toggleCustomExpanded,
                         activeColor: Colors.white,
                         inactiveTrackColor: Colors.white.withOpacity(0.3),
                       ),
@@ -345,11 +341,7 @@ class _SleepingScreenState extends State<SleepingScreen> {
                           ),
                           Switch(
                             value: _isCustomExpanded,
-                            onChanged: (value) {
-                              setState(() {
-                                _isCustomExpanded = value;
-                              });
-                            },
+                            onChanged: _toggleCustomExpanded,
                             activeColor: Colors.white,
                             inactiveTrackColor: Colors.white.withOpacity(0.3),
                           ),
@@ -431,7 +423,7 @@ class _SleepingScreenState extends State<SleepingScreen> {
   Widget _buildVolumeControl(double standardFontSize) {
     return GlassmorphicContainer(
       width: double.infinity,
-      height: standardFontSize * 5,
+      height: standardFontSize * 8,
       borderRadius: 20,
       blur: 20,
       alignment: Alignment.center,
@@ -456,65 +448,110 @@ class _SleepingScreenState extends State<SleepingScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: standardFontSize * 0.8),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.music_note, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  '音量控制',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: standardFontSize * 0.8,
+                Expanded(
+                  child: _buildModeButton(
+                    '睡眠计划',
+                    Icons.bedtime,
+                    !_isCustomMode,
+                    standardFontSize,
+                    () => setState(() => _isCustomMode = false),
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  '音量控制切换',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: standardFontSize * 0.7,
+                SizedBox(width: standardFontSize * 0.8),
+                Expanded(
+                  child: _buildModeButton(
+                    '自定义音频',
+                    Icons.music_note,
+                    _isCustomMode,
+                    standardFontSize,
+                    () {
+                      setState(() {
+                        _isCustomMode = true;
+                      });
+                    },
                   ),
-                ),
-                Switch(
-                  value: _isCustomMode,
-                  onChanged: (value) {
-                    setState(() {
-                      _isCustomMode = value;
-                    });
-                  },
-                  activeColor: Colors.white,
-                  inactiveTrackColor: Colors.white.withOpacity(0.3),
                 ),
               ],
             ),
           ),
-          Row(
-            children: [
-              const SizedBox(width: 20),
-              const Icon(Icons.volume_down, color: Colors.white, size: 20),
-              Expanded(
-                child: Slider(
-                  value: _isCustomMode
-                      ? _audioService.customVolume
-                      : _audioService.presetVolume,
-                  onChanged: (value) {
-                    if (_isCustomMode) {
-                      _audioService.setCustomVolume(value);
-                    } else {
-                      _audioService.setPresetVolume(value);
-                    }
-                    setState(() {});
-                  },
-                  activeColor: Colors.white,
-                  inactiveColor: Colors.white.withOpacity(0.3),
+          SizedBox(height: standardFontSize * 0.8),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: standardFontSize),
+            child: Row(
+              children: [
+                Icon(Icons.volume_down,
+                    color: Colors.white, size: standardFontSize * 1.2),
+                Expanded(
+                  child: Slider(
+                    value: _isCustomMode
+                        ? _audioService.customVolume
+                        : _audioService.presetVolume,
+                    onChanged: (value) {
+                      if (_isCustomMode) {
+                        _audioService.setCustomVolume(value);
+                      } else {
+                        _audioService.setPresetVolume(value);
+                      }
+                      setState(() {});
+                    },
+                    activeColor: Colors.white,
+                    inactiveColor: Colors.white.withOpacity(0.3),
+                  ),
                 ),
-              ),
-              const Icon(Icons.volume_up, color: Colors.white, size: 20),
-              const SizedBox(width: 20),
-            ],
+                Icon(Icons.volume_up,
+                    color: Colors.white, size: standardFontSize * 1.2),
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildModeButton(String text, IconData icon, bool isSelected,
+      double standardFontSize, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: standardFontSize * 0.5,
+          vertical: standardFontSize * 0.4,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.white.withOpacity(0.3)
+              : Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(standardFontSize * 0.8),
+          border: Border.all(
+            color: isSelected
+                ? Colors.white.withOpacity(0.8)
+                : Colors.white.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: standardFontSize * 0.9,
+            ),
+            SizedBox(width: standardFontSize * 0.3),
+            Text(
+              text,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: standardFontSize * 0.7,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -777,5 +814,15 @@ class _SleepingScreenState extends State<SleepingScreen> {
       await _audioService.playCustomSound(audioPath);
     }
     setState(() {});
+  }
+
+  void _toggleCustomExpanded(bool value) {
+    setState(() {
+      _isCustomExpanded = value;
+      if (!value) {
+        // 当关闭自定义音频时，停止播放所有自定义音频
+        _audioService.stopCustomSound();
+      }
+    });
   }
 }

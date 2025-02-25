@@ -266,6 +266,10 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final standardFontSize = screenWidth * 0.045;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -276,140 +280,149 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Container(
-              constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height -
-                    MediaQuery.of(context).padding.top,
-              ),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios,
-                              color: Colors.white),
-                          onPressed: () => Navigator.pop(context),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back_ios,
+                                  color: Colors.white),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            Text(
+                              '入睡准备',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: standardFontSize * 1.2,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
-                        const Text(
-                          '入睡准备',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                        const SizedBox(height: 20),
+                        // 入睡建议卡片
+                        GlassmorphicContainer(
+                          width: double.infinity,
+                          height: screenHeight * 0.15,
+                          borderRadius: 20,
+                          blur: 20,
+                          alignment: Alignment.center,
+                          border: 2,
+                          linearGradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withOpacity(0.1),
+                              Colors.white.withOpacity(0.05),
+                            ],
+                          ),
+                          borderGradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withOpacity(0.5),
+                              Colors.white.withOpacity(0.2),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '今日入睡建议',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: standardFontSize * 0.9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _currentQuote,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.8),
+                                    fontSize: standardFontSize * 0.7,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
+                        const SizedBox(height: 20),
+                        _buildBreathingGuide()
+                            .animate()
+                            .fadeIn(delay: 300.ms, duration: 500.ms)
+                            .slideX(begin: -0.2, end: 0),
+                        const SizedBox(height: 20),
+                        _buildPreparationSteps(),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    _buildQuoteCard()
-                        .animate()
-                        .fadeIn(delay: 200.ms, duration: 500.ms)
-                        .slideX(begin: -0.2, end: 0),
-                    const SizedBox(height: 20),
-                    _buildBreathingGuide()
-                        .animate()
-                        .fadeIn(delay: 300.ms, duration: 500.ms)
-                        .slideX(begin: -0.2, end: 0),
-                    const SizedBox(height: 20),
-                    _buildPreparationSteps(),
-                    const SizedBox(height: 30),
-                    Center(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const SleepingScreen(),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.2),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 16,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          '准备完成，开始睡眠',
-                          style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+              // 底部按钮
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SleepingScreen(),
+                      ),
+                    );
+                  },
+                  child: GlassmorphicContainer(
+                    width: double.infinity,
+                    height: 56,
+                    borderRadius: 28,
+                    blur: 20,
+                    alignment: Alignment.center,
+                    border: 2,
+                    linearGradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withOpacity(0.1),
+                        Colors.white.withOpacity(0.05),
+                      ],
+                    ),
+                    borderGradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withOpacity(0.5),
+                        Colors.white.withOpacity(0.2),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        '准备完成',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: standardFontSize * 0.9,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuoteCard() {
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: 120,
-      borderRadius: 15,
-      blur: 20,
-      alignment: Alignment.center,
-      border: 2,
-      linearGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.1),
-          Colors.white.withOpacity(0.05),
-        ],
-      ),
-      borderGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.5),
-          Colors.white.withOpacity(0.2),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.format_quote,
-                  color: Colors.white.withOpacity(0.8),
-                  size: 24,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _currentQuote,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 14,
-                      height: 1.4,
-                    ),
-                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(width: 32),
-              ],
-            ),
-          ],
+                ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -513,7 +526,7 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
   Widget _buildPreparationSteps() {
     return GlassmorphicContainer(
       width: double.infinity,
-      height: 300,
+      height: 380,
       borderRadius: 15,
       blur: 20,
       alignment: Alignment.center,
@@ -547,42 +560,39 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView(
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildPreparationItem(
-                    '1. 放松身心',
-                    '深呼吸5-10分钟，让身体和心灵都放松下来',
-                    Icons.spa,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildPreparationItem(
-                    '2. 调整光线',
-                    '调暗房间灯光，营造舒适的睡眠环境',
-                    Icons.wb_sunny,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildPreparationItem(
-                    '3. 远离电子设备',
-                    '睡前一小时避免使用手机等电子设备',
-                    Icons.phone_android,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildPreparationItem(
-                    '4. 温度调节',
-                    '保持房间温度在18-22度之间',
-                    Icons.thermostat,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildPreparationItem(
-                    '5. 穿着舒适',
-                    '选择宽松、透气的睡衣',
-                    Icons.checkroom,
-                  ),
-                ],
-              ),
+            const SizedBox(height: 12),
+            Column(
+              children: [
+                _buildPreparationItem(
+                  '1. 放松身心',
+                  '深呼吸5-10分钟，让身体和心灵都放松下来',
+                  Icons.spa,
+                ),
+                const SizedBox(height: 12),
+                _buildPreparationItem(
+                  '2. 调整光线',
+                  '调暗房间灯光，营造舒适的睡眠环境',
+                  Icons.wb_sunny,
+                ),
+                const SizedBox(height: 12),
+                _buildPreparationItem(
+                  '3. 远离电子设备',
+                  '睡前一小时避免使用手机等电子设备',
+                  Icons.phone_android,
+                ),
+                const SizedBox(height: 12),
+                _buildPreparationItem(
+                  '4. 温度调节',
+                  '保持房间温度在18-22度之间',
+                  Icons.thermostat,
+                ),
+                const SizedBox(height: 12),
+                _buildPreparationItem(
+                  '5. 穿着舒适',
+                  '选择宽松、透气的睡衣',
+                  Icons.checkroom,
+                ),
+              ],
             ),
           ],
         ),
@@ -596,8 +606,8 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 32,
-          height: 32,
+          width: 28,
+          height: 28,
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.2),
             shape: BoxShape.circle,
@@ -605,10 +615,10 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
           child: Icon(
             icon,
             color: Colors.white,
-            size: 16,
+            size: 14,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -617,17 +627,17 @@ class _SleepPreparationScreenState extends State<SleepPreparationScreen> {
                 title,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 description,
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
-                  fontSize: 12,
-                  height: 1.4,
+                  fontSize: 11,
+                  height: 1.3,
                 ),
               ),
             ],

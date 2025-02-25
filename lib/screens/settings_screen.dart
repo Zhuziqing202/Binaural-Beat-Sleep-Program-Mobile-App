@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:glassmorphism/glassmorphism.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'theory_screen.dart';
+import 'welcome_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _isTheoryExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +56,10 @@ class SettingsScreen extends StatelessWidget {
                     child: Column(
                       children: [
                         _buildAboutCard(),
+                        const SizedBox(height: 16),
+                        _buildTheoryCard(),
+                        const SizedBox(height: 16),
+                        _buildWelcomeCard(),
                       ],
                     ),
                   ),
@@ -56,6 +69,102 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTheoryCard() {
+    return GlassmorphicContainer(
+      width: double.infinity,
+      height: 80,
+      borderRadius: 20,
+      blur: 20,
+      alignment: Alignment.center,
+      border: 2,
+      linearGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.1),
+          Colors.white.withOpacity(0.05),
+        ],
+      ),
+      borderGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.5),
+          Colors.white.withOpacity(0.2),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TheoryScreen(),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.science_outlined,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      '理论依据',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).animate().fadeIn(duration: 600.ms);
+  }
+
+  Widget _buildTheorySection(String title, String content) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          content,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.8),
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ),
+      ],
     );
   }
 
@@ -120,7 +229,7 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 8),
             // 版本号
             Text(
-              'Version 1.0.0',
+              'Version 1.0.2',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.7),
                 fontSize: 16,
@@ -186,5 +295,76 @@ class SettingsScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildWelcomeCard() {
+    return GlassmorphicContainer(
+      width: double.infinity,
+      height: 80,
+      borderRadius: 20,
+      blur: 20,
+      alignment: Alignment.center,
+      border: 2,
+      linearGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.1),
+          Colors.white.withOpacity(0.05),
+        ],
+      ),
+      borderGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.5),
+          Colors.white.withOpacity(0.2),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const WelcomeScreen(),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      '使用指南',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).animate().fadeIn(duration: 600.ms);
   }
 }

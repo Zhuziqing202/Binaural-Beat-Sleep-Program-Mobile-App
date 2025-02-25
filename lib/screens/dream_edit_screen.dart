@@ -3,6 +3,7 @@ import 'package:glassmorphism/glassmorphism.dart';
 import '../models/dream_record.dart';
 import '../services/dream_record_service.dart';
 import 'package:uuid/uuid.dart';
+import 'insomnia_assistant_screen.dart';
 
 class DreamEditScreen extends StatefulWidget {
   final DreamRecord? record; // 如果是编辑现有记录，则传入
@@ -137,7 +138,8 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
                   ),
                   TextButton(
                     onPressed: () async {
-                      await DreamRecordService.instance.deleteRecord(widget.record!.id);
+                      await DreamRecordService.instance
+                          .deleteRecord(widget.record!.id);
                       if (mounted) {
                         Navigator.pop(context); // 关闭确认对话框
                         Navigator.pop(context, true); // 返回上一页并刷新
@@ -193,6 +195,7 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
                         _buildMoodSelector(),
                         const SizedBox(height: 20),
                         _buildClaritySlider(),
+                        _buildInsomniaAssistantCard(context),
                       ],
                     ),
                   ),
@@ -424,7 +427,7 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
   Widget _buildMoodSelector() {
     return GlassmorphicContainer(
       width: double.infinity,
-      height: 140,
+      height: 120,
       borderRadius: 20,
       blur: 20,
       alignment: Alignment.center,
@@ -446,22 +449,27 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(15),
+        padding: const EdgeInsets.all(12),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               '梦境情绪: ${_mood > 0 ? '+$_mood' : _mood}',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.sentiment_very_dissatisfied, color: Colors.white70),
+                const Icon(
+                  Icons.sentiment_very_dissatisfied,
+                  color: Colors.white70,
+                  size: 20,
+                ),
                 Expanded(
                   child: Slider(
                     value: _mood.toDouble(),
@@ -473,10 +481,14 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
                     onChanged: (value) => setState(() => _mood = value.round()),
                   ),
                 ),
-                const Icon(Icons.sentiment_very_satisfied, color: Colors.white70),
+                const Icon(
+                  Icons.sentiment_very_satisfied,
+                  color: Colors.white70,
+                  size: 20,
+                ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -484,21 +496,21 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
                   '消极',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.7),
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
                 Text(
                   '中性',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.7),
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
                 Text(
                   '积极',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.7),
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -512,7 +524,7 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
   Widget _buildClaritySlider() {
     return GlassmorphicContainer(
       width: double.infinity,
-      height: 100,
+      height: 120,
       borderRadius: 20,
       blur: 20,
       alignment: Alignment.center,
@@ -533,28 +545,136 @@ class _DreamEditScreenState extends State<DreamEditScreen> {
           Colors.white.withOpacity(0.2),
         ],
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '清晰度: $_clarity',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '清晰度: $_clarity',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          Slider(
-            value: _clarity.toDouble(),
-            min: 1,
-            max: 5,
-            divisions: 4,
-            activeColor: Colors.white,
-            inactiveColor: Colors.white.withOpacity(0.3),
-            onChanged: (value) => setState(() => _clarity = value.round()),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(
+                  Icons.cloud,
+                  color: Colors.white70,
+                  size: 20,
+                ),
+                Expanded(
+                  child: Slider(
+                    value: _clarity.toDouble(),
+                    min: 1,
+                    max: 5,
+                    divisions: 4,
+                    activeColor: Colors.white,
+                    inactiveColor: Colors.white.withOpacity(0.3),
+                    onChanged: (value) =>
+                        setState(() => _clarity = value.round()),
+                  ),
+                ),
+                const Icon(
+                  Icons.wb_sunny,
+                  color: Colors.white70,
+                  size: 20,
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '模糊',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 11,
+                  ),
+                ),
+                Text(
+                  '清晰',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
-} 
+
+  Widget _buildInsomniaAssistantCard(BuildContext context) {
+    return GlassmorphicContainer(
+      width: double.infinity,
+      height: 80,
+      borderRadius: 20,
+      blur: 20,
+      alignment: Alignment.center,
+      border: 2,
+      linearGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.1),
+          Colors.white.withOpacity(0.05),
+        ],
+      ),
+      borderGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.5),
+          Colors.white.withOpacity(0.2),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const InsomniaAssistantScreen(),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Icon(
+                  Icons.help_outline,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                const Text(
+                  '失眠助手',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

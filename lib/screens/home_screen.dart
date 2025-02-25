@@ -51,7 +51,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                     GlassmorphicContainer(
                       width: double.infinity,
-                      height: screenHeight * 0.28,
+                      height: screenHeight * 0.22,
                       borderRadius: 20,
                       blur: 20,
                       alignment: Alignment.center,
@@ -73,9 +73,9 @@ class HomeScreen extends StatelessWidget {
                         ],
                       ),
                       child: SizedBox(
-                        height: screenHeight * 0.2,
+                        height: screenHeight * 0.15,
                         child: Transform.scale(
-                          scale: 0.7,
+                          scale: 0.65,
                           child: Image.asset(
                             'assets/images/sleep_banner.png',
                             fit: BoxFit.contain,
@@ -89,7 +89,7 @@ class HomeScreen extends StatelessWidget {
                         end: 0,
                         duration: 600.ms,
                         curve: Curves.easeOut),
-                    SizedBox(height: screenHeight * 0.03),
+                    SizedBox(height: screenHeight * 0.02),
                     GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -164,9 +164,9 @@ class HomeScreen extends StatelessWidget {
                         .animate()
                         .fadeIn(delay: 600.ms, duration: 600.ms)
                         .slideY(begin: 0.2, end: 0),
-                    SizedBox(height: screenHeight * 0.05),
+                    SizedBox(height: screenHeight * 0.03),
                     _buildStartSleepButton(context, standardFontSize),
-                    SizedBox(height: screenHeight * 0.05),
+                    SizedBox(height: screenHeight * 0.03),
                   ],
                 ),
               ),

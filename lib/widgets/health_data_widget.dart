@@ -48,7 +48,7 @@ class _HealthDataWidgetState extends State<HealthDataWidget> {
     });
 
     final data = await _healthService.getSleepData(widget.date);
-    
+
     setState(() {
       _healthData = data;
       _isLoading = false;
@@ -68,13 +68,13 @@ class _HealthDataWidgetState extends State<HealthDataWidget> {
   Future<void> _loadWeekData() async {
     final now = DateTime.now();
     final weekAgo = now.subtract(const Duration(days: 7));
-    
+
     final records = await _sleepRecordService.getAllRecords();
     final weekRecords = records.where((record) {
-      return record.startTime.isAfter(weekAgo) && 
-             record.startTime.isBefore(now);
+      return record.startTime.isAfter(weekAgo) &&
+          record.startTime.isBefore(now);
     }).toList();
-    
+
     setState(() {
       _weekRecords = weekRecords;
     });
@@ -82,7 +82,7 @@ class _HealthDataWidgetState extends State<HealthDataWidget> {
 
   String _getAverageSleepDuration() {
     if (_weekRecords.isEmpty) return '暂无数据';
-    
+
     final totalMinutes = _weekRecords.fold<int>(
       0,
       (sum, record) => sum + record.duration.inMinutes,
@@ -90,7 +90,7 @@ class _HealthDataWidgetState extends State<HealthDataWidget> {
     final averageMinutes = totalMinutes ~/ _weekRecords.length;
     final hours = averageMinutes ~/ 60;
     final minutes = averageMinutes % 60;
-    
+
     return '$hours小时$minutes分钟';
   }
 
@@ -159,4 +159,4 @@ class _HealthDataWidgetState extends State<HealthDataWidget> {
       ),
     );
   }
-} 
+}
